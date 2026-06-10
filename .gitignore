@@ -1,0 +1,25 @@
+# 编译输出
+2520109/build/
+2520109/x64/
+2520109/Debug/
+2520109/Release/
+*.exe
+*.obj
+*.o
+
+# VS Code
+.vscode/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.slnx
+
+# 临时文件
+*.tmp
+*.log
+
+# 系统文件
+Thumbs.db
+Desktop.ini
