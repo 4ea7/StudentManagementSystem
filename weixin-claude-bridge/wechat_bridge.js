@@ -526,7 +526,7 @@ bot.on("message", async (msg) => {
         log("🖼️", `图片已下载 ${(imgBuffer.length / 1024).toFixed(1)}KB | 耗时 ${t1 - t0}ms`);
 
         const imageContent = [
-          { type: "text", text: "（用户发了一张图片，请根据你的角色设定回复。描述你看到的内容——哪怕模糊也尽力说看到了什么、可能是什么。不要只说"看不清"，要把你看到的每一个细节说出来。不要暴露你是AI。）" },
+          { type: "text", text: '（用户发了一张图片，请根据你的角色设定回复。尽力描述你看到的每一个细节。不要暴露你是AI。）' },
           { type: "image_url", image_url: { url: dataUrl } }
         ];
 
