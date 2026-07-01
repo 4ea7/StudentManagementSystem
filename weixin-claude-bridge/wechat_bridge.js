@@ -54,6 +54,7 @@ const VISION_API_BASE_URL = process.env.VISION_API_BASE_URL || API_BASE_URL;
 
 const SYNC_FILE = path.join(scriptDir, "wechat_sync.json");
 const CORRECTIONS_FILE = path.join(scriptDir, "corrections.txt");
+const STICKERS_FILE = path.join(scriptDir, "stickers.json");
 
 // ── 主动消息配置 ──
 const PROACTIVE_ENABLED = process.env.PROACTIVE_ENABLED === "true";
@@ -69,10 +70,65 @@ if (!API_KEY) { console.error("❌ 请设置 API_KEY"); process.exit(1); }
 function log(tag, msg) { console.log(`[${new Date().toLocaleTimeString()}][${tag}] ${msg}`); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// ── 表情库 ──
+let stickerBank = {}; // { md5: { savedBy, savedAt, count } }
+
+function loadStickers() {
+  if (fs.existsSync(STICKERS_FILE)) {
+    try { stickerBank = JSON.parse(fs.readFileSync(STICKERS_FILE, "utf-8")); } catch {}
+  }
+}
+
+function saveStickers() {
+  fs.writeFileSync(STICKERS_FILE, JSON.stringify(stickerBank, null, 2));
+}
+
+function extractEmojiMd5(msg) {
+  const content = String(msg.Content || "");
+  // wechat4u 表情消息 Content 是 XML，MD5 在 md5="..." 属性里
+  const md5Match = content.match(/md5="([a-f0-9]{32})"/i);
+  if (md5Match) return md5Match[1];
+  // 有时 Content 直接就是 MD5
+  if (/^[a-f0-9]{32}$/.test(content)) return content;
+  return null;
+}
+
+function addSticker(md5, from, displayName) {
+  if (stickerBank[md5]) {
+    stickerBank[md5].count++;
+  } else {
+    stickerBank[md5] = { savedBy: displayName, savedAt: new Date().toISOString(), count: 1 };
+    saveStickers();
+    log("🃏", `新表情入库: ${md5}`);
+  }
+}
+
+function getStickerList() {
+  const entries = Object.entries(stickerBank);
+  if (entries.length === 0) return "";
+  return entries.map(([md5, info], i) => `${i + 1}. ${md5.slice(0, 6)}… (使用${info.count}次)`).join("\n");
+}
+
+// 发一条表情
+async function sendSticker(md5, to) {
+  try {
+    await bot.sendEmoticon(md5, to);
+    return true;
+  } catch (err) {
+    log("⚠️", `表情发送失败: ${err.message}`);
+    return false;
+  }
+}
+
 function loadSystemPrompt() {
   let base = "你是一个友好、简洁的助手。用中文回复，像微信聊天一样自然。";
   if (SYSTEM_PROMPT_FILE && fs.existsSync(SYSTEM_PROMPT_FILE)) {
     base = fs.readFileSync(SYSTEM_PROMPT_FILE, "utf-8");
+  }
+  // 拼接表情库（如果 AI 想发表情，用 [sticker:N] 格式）
+  const stickerList = getStickerList();
+  if (stickerList) {
+    base += `\n\n# 你可以使用的微信贴纸表情（回复中用 [sticker:N] 占位即可发送对应贴纸）：\n${stickerList}`;
   }
   // 拼接用户自定义规则
   if (fs.existsSync(CORRECTIONS_FILE)) {
@@ -116,6 +172,7 @@ async function callAI(userContent, systemPrompt, history, opts = {}) {
 }
 
 // ── 主程序 ──
+loadStickers();
 const systemPrompt = loadSystemPrompt();
 const sessions = new Map();
 const MAX_HISTORY = 200;
@@ -211,9 +268,23 @@ async function sendReply(reply, to) {
   }
 
   const messages = parts.length > 0 ? parts : [reply];
-  for (const part of messages) {
-    const trimmed = part.trim();
+  for (let part of messages) {
+    let trimmed = part.trim();
     if (!trimmed) continue;
+
+    // 检测 [sticker:N] 占位符 — 发送表情库中的贴纸
+    const stickerMatch = trimmed.match(/^\[sticker:(\d+)\]$/);
+    if (stickerMatch) {
+      const idx = parseInt(stickerMatch[1]) - 1;
+      const md5s = Object.keys(stickerBank);
+      if (idx >= 0 && idx < md5s.length) {
+        const sent = await sendSticker(md5s[idx], to);
+        if (sent) { log("🃏", `已发送表情 #${stickerMatch[1]}`); continue; }
+      }
+      // 表情发不了就跳过这一条
+      continue;
+    }
+
     await bot.sendMsg(trimmed, to);
     await sleep(800);
   }
@@ -413,33 +484,28 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 表情消息 — 下载后调用 AI 回复
+    // 表情消息 — 同时收集 MD5 到表情库
     if (msgType === CONF.MSGTYPE_EMOTICON) {
-      log("😀", `${displayName}: [表情]`);
-      try {
-        // 下载表情图片，让 vision 模型"看懂"
-        const emojiRes = await bot.getMsgImg(msg.MsgId);
-        const buf = emojiRes.data;
-        const mime = emojiRes.type || "image/gif";
-        const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-        const emojiContent = [
-          { type: "text", text: "（用户发了一个微信表情/贴纸。根据你的角色设定，用文字回复。不要暴露你是AI。）" },
-          { type: "image_url", image_url: { url: dataUrl } }
-        ];
-        const emojiReply = await callAI(emojiContent, prompt, history, { useVision: true });
-        log("😀", `→ ${emojiReply.slice(0, 60)}`);
-        history.push({ role: "user", content: "[表情]" });
-        history.push({ role: "assistant", content: emojiReply });
-        while (history.length > MAX_HISTORY) history.shift();
-        await sendReply(emojiReply, from);
-      } catch (err) {
-        log("⚠️", `表情处理失败: ${err.message}`);
-        history.push({ role: "user", content: "[表情]" });
-        // 降级：纯文本回复
-        const fallback = await callAI("（对方发了一个表情包）", prompt, history);
-        history.push({ role: "assistant", content: fallback });
-        while (history.length > MAX_HISTORY) history.shift();
-        await sendReply(fallback, from);
+      // 提取 MD5 存入表情库
+      const emojiMd5 = extractEmojiMd5(msg);
+      if (emojiMd5) addSticker(emojiMd5, from, displayName);
+      log("😀", `${displayName}: [表情]${emojiMd5 ? " MD5=" + emojiMd5 : ""}`);
+      history.push({ role: "user", content: "[表情]" });
+
+      // 随机小概率回复（避免每次表情都回文字刷屏）
+      if (Math.random() < 0.3) {
+        try {
+          const emojiReply = await callAI("（对方发了一个微信表情/贴纸。你可以选择回一个表情、一句话、或不回。用你的自然语气。）", prompt, history);
+          if (emojiReply.trim()) {
+            log("😀", `→ ${emojiReply.slice(0, 60)}`);
+            history.push({ role: "assistant", content: emojiReply });
+            while (history.length > MAX_HISTORY) history.shift();
+            // 检测回复中是否有 [sticker:xxx] 占位符
+            await sendReply(emojiReply, from);
+          }
+        } catch (err) {
+          log("⚠️", `表情回复失败: ${err.message}`);
+        }
       }
       return;
     }
