@@ -416,21 +416,25 @@ bot.on("message", async (msg) => {
       log("🖼️", `${displayName}: [图片]`);
 
       try {
+        const t0 = Date.now();
         const imgRes = await bot.getMsgImg(msg.MsgId);
+        const t1 = Date.now();
         const imgBuffer = imgRes.data;
         const mime = imgRes.type || "image/jpeg";
         const base64 = imgBuffer.toString("base64");
         const dataUrl = `data:${mime};base64,${base64}`;
 
-        log("🖼️", `图片已下载 (${(imgBuffer.length / 1024).toFixed(1)}KB)`);
+        log("🖼️", `图片已下载 ${(imgBuffer.length / 1024).toFixed(1)}KB | 耗时 ${t1 - t0}ms`);
 
         const imageContent = [
           { type: "text", text: "（用户发了一张图片，请根据你的角色设定回复。如果图片内容看不清或无法识别，就自然地说看不清。不要暴露你是AI。）" },
           { type: "image_url", image_url: { url: dataUrl } }
         ];
 
+        const t2 = Date.now();
         const reply = await callAI(imageContent, prompt, history, { useVision: true });
-        log("🤖", `→ ${reply.slice(0, 60)}${reply.length > 60 ? "…" : ""}`);
+        const t3 = Date.now();
+        log("🤖", `→ ${reply.slice(0, 60)}${reply.length > 60 ? "…" : ""} | 下载${t1 - t0}ms API${t3 - t2}ms 总计${t3 - t0}ms`);
 
         history.push({ role: "user", content: "[图片]" });
         history.push({ role: "assistant", content: reply });
