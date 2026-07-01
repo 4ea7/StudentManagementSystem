@@ -53,6 +53,7 @@ const VISION_API_MODEL = process.env.VISION_API_MODEL || API_MODEL;
 const VISION_API_BASE_URL = process.env.VISION_API_BASE_URL || API_BASE_URL;
 
 const SYNC_FILE = path.join(scriptDir, "wechat_sync.json");
+const CORRECTIONS_FILE = path.join(scriptDir, "corrections.txt");
 
 // ── 主动消息配置 ──
 const PROACTIVE_ENABLED = process.env.PROACTIVE_ENABLED === "true";
@@ -69,8 +70,16 @@ function log(tag, msg) { console.log(`[${new Date().toLocaleTimeString()}][${tag
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function loadSystemPrompt() {
-  if (SYSTEM_PROMPT_FILE && fs.existsSync(SYSTEM_PROMPT_FILE)) return fs.readFileSync(SYSTEM_PROMPT_FILE, "utf-8");
-  return "你是一个友好、简洁的助手。用中文回复，像微信聊天一样自然。";
+  let base = "你是一个友好、简洁的助手。用中文回复，像微信聊天一样自然。";
+  if (SYSTEM_PROMPT_FILE && fs.existsSync(SYSTEM_PROMPT_FILE)) {
+    base = fs.readFileSync(SYSTEM_PROMPT_FILE, "utf-8");
+  }
+  // 拼接用户自定义规则
+  if (fs.existsSync(CORRECTIONS_FILE)) {
+    const corrections = fs.readFileSync(CORRECTIONS_FILE, "utf-8").trim();
+    if (corrections) base += "\n\n# 用户最新要求（最高优先级，覆盖上述所有规则）：\n" + corrections;
+  }
+  return base;
 }
 
 // ── AI 调用 (OpenAI 兼容 API) ──
@@ -465,8 +474,58 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    // ── 微信命令 ──
+    const rawText = String(msg.Content || "").trim();
+
+    // !规则 列表
+    if (rawText === "!规则列表" || rawText === "!规则") {
+      if (fs.existsSync(CORRECTIONS_FILE)) {
+        const lines = fs.readFileSync(CORRECTIONS_FILE, "utf-8").trim().split("\n");
+        const list = lines.length > 0
+          ? lines.map((l, i) => `${i + 1}. ${l.replace(/^\d+\.\s*/, "")}`).join("\n")
+          : "暂无自定义规则";
+        await bot.sendMsg(`当前规则：\n${list}`, from);
+      } else {
+        await bot.sendMsg("暂无自定义规则", from);
+      }
+      return;
+    }
+
+    // !规则 删除 N
+    const delMatch = rawText.match(/^!规则删除\s+(\d+)$/);
+    if (delMatch) {
+      if (fs.existsSync(CORRECTIONS_FILE)) {
+        const lines = fs.readFileSync(CORRECTIONS_FILE, "utf-8").trim().split("\n").filter(Boolean);
+        const idx = parseInt(delMatch[1]) - 1;
+        if (idx >= 0 && idx < lines.length) {
+          const removed = lines.splice(idx, 1)[0];
+          fs.writeFileSync(CORRECTIONS_FILE, lines.join("\n") + "\n");
+          log("📝", `规则已删除: ${removed}`);
+          await bot.sendMsg(`已删除: ${removed}`, from);
+        } else {
+          await bot.sendMsg("序号不存在", from);
+        }
+      }
+      return;
+    }
+
+    // !规则 xxx → 追加规则
+    if (rawText.startsWith("!规则 ") || rawText.startsWith("！规则 ")) {
+      const rule = rawText.replace(/^[!！]规则\s*/, "").trim();
+      if (rule) {
+        const lines = fs.existsSync(CORRECTIONS_FILE)
+          ? fs.readFileSync(CORRECTIONS_FILE, "utf-8").trim().split("\n").filter(Boolean)
+          : [];
+        lines.push(`${lines.length + 1}. ${rule}`);
+        fs.writeFileSync(CORRECTIONS_FILE, lines.join("\n") + "\n");
+        log("📝", `新规则: ${rule}`);
+        await bot.sendMsg(`已添加规则 #${lines.length}: ${rule}，立即生效`, from);
+      }
+      return;
+    }
+
     // 纯文本消息（默认）
-    const text = String(msg.Content || "").trim();
+    const text = rawText;
     if (!text) return;
     log("📩", `${displayName}: ${text.slice(0, 50)}${text.length > 50 ? "…" : ""}`);
 
