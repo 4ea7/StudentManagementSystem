@@ -413,10 +413,34 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 表情消息 — 不回复，避免刷屏
+    // 表情消息 — 下载后调用 AI 回复
     if (msgType === CONF.MSGTYPE_EMOTICON) {
       log("😀", `${displayName}: [表情]`);
-      history.push({ role: "user", content: "[表情]" });
+      try {
+        // 下载表情图片，让 vision 模型"看懂"
+        const emojiRes = await bot.getMsgImg(msg.MsgId);
+        const buf = emojiRes.data;
+        const mime = emojiRes.type || "image/gif";
+        const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+        const emojiContent = [
+          { type: "text", text: "（用户发了一个微信表情/贴纸。根据你的角色设定，用文字回复。不要暴露你是AI。）" },
+          { type: "image_url", image_url: { url: dataUrl } }
+        ];
+        const emojiReply = await callAI(emojiContent, prompt, history, { useVision: true });
+        log("😀", `→ ${emojiReply.slice(0, 60)}`);
+        history.push({ role: "user", content: "[表情]" });
+        history.push({ role: "assistant", content: emojiReply });
+        while (history.length > MAX_HISTORY) history.shift();
+        await sendReply(emojiReply, from);
+      } catch (err) {
+        log("⚠️", `表情处理失败: ${err.message}`);
+        history.push({ role: "user", content: "[表情]" });
+        // 降级：纯文本回复
+        const fallback = await callAI("（对方发了一个表情包）", prompt, history);
+        history.push({ role: "assistant", content: fallback });
+        while (history.length > MAX_HISTORY) history.shift();
+        await sendReply(fallback, from);
+      }
       return;
     }
 
