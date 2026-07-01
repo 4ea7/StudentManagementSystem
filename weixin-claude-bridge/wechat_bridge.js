@@ -13,19 +13,30 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ── 加载 .env 文件（简单解析，不依赖第三方库）──
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, ".env");
-if (fs.existsSync(envPath)) {
-  const lines = fs.readFileSync(envPath, "utf-8").split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim();
-    if (!process.env[key]) process.env[key] = val;
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const envPaths = [path.join(scriptDir, ".env"), path.join(process.cwd(), ".env")];
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, "utf-8").split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim();
+      if (!process.env[key]) process.env[key] = val;
+    }
+    envLoaded = true;
+    break;
   }
+}
+// 启动时输出调试信息
+if (!envLoaded) {
+  console.error("[env] 未找到 .env 文件，查找路径:", envPaths);
+} else {
+  console.error("[env] .env 已加载, API_KEY:", process.env.API_KEY ? "已设置 ✓" : "未找到 ✗");
 }
 
 // ── 配置 ──
