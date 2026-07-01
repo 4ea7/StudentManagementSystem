@@ -528,9 +528,29 @@ bot.on("message", async (msg) => {
     }
 
     // 纯文本消息（默认）
-    const text = rawText;
+    let text = rawText;
+    let quotedPart = "";
+
+    // 检测微信引用回复：格式「发送者：内容」\n回复内容
+    const quoteMatch = text.match(/^「(.+?)」\s*\n?(.*)$/s);
+    if (quoteMatch) {
+      quotedPart = quoteMatch[1];
+      text = quoteMatch[2]?.trim() || "";
+      if (text) {
+        log("💬", `引用: ${quotedPart.slice(0, 40)}… → 回复: ${text.slice(0, 30)}`);
+        text = `[用户引用了这条消息：「${quotedPart}」然后回复说] ${text}`;
+      } else {
+        // 只发了引用没有文字——可能是点错了，当普通消息处理
+        text = quotedPart;
+        quotedPart = "";
+        log("📩", `${displayName}: ${text.slice(0, 50)}${text.length > 50 ? "…" : ""}`);
+      }
+    }
+
     if (!text) return;
-    log("📩", `${displayName}: ${text.slice(0, 50)}${text.length > 50 ? "…" : ""}`);
+    if (!quotedPart) {
+      log("📩", `${displayName}: ${text.slice(0, 50)}${text.length > 50 ? "…" : ""}`);
+    }
 
     const reply = await callAI(text, prompt, history);
     log("🤖", `→ ${reply.slice(0, 60)}${reply.length > 60 ? "…" : ""}`);
