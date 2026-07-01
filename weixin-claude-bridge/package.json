@@ -1,0 +1,16 @@
+{
+  "name": "weixin-claude-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "微信 ↔ Claude 桥接：本地接收微信消息，Claude API 处理后回复",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "wechat4u": "^0.7.14"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

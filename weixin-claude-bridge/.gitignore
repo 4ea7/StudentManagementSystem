@@ -1,0 +1,13 @@
+# 敏感文件 — 绝对不能提交
+.env
+wechat_sync.json
+
+# 依赖
+node_modules/
+
+# 日志
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db

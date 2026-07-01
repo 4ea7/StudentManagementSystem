@@ -1,0 +1,13 @@
+services:
+  wechat-bridge:
+    build: .
+    container_name: wechat-bridge
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./wechat_sync.json:/app/wechat_sync.json
+      - ./system_prompt.md:/app/system_prompt.md:ro
+      - ./system_prompt_xaj.md:/app/system_prompt_xaj.md:ro
+    tty: true
+    stdin_open: true
