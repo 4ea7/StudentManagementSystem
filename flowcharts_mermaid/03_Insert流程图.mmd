@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 420}}}%%
+flowchart TD
+    S(["Insert(H,stu)"]) --> A["SearchById 查重"]
+    A --> B{"学号已存在?"}
+    B -->|"是 重复"| E1["提示学号重复 return ERROR"]
+    B -->|"否"| C["计算Hash地址 new HashNode"]
+    C --> D{"分配失败?"}
+    D -->|是| E2["return OVERFLOW"]
+    D -->|否| F["复制数据 头插法 H[addr]=p"]
+    F --> G["提示成功 return OK"]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style G fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style B fill:#FFF8E1,stroke:#F57F17
+    style D fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828
+    style E2 fill:#FFEBEE,stroke:#C62828

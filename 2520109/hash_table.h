@@ -30,7 +30,7 @@ typedef struct HashNode {
     struct HashNode* next;
 } HashNode;
 
-// 散列表：指针数组，每个元素指向一个链表
+
 typedef HashNode* HashTable[TABLE_SIZE];
 
 // 散列函数：除留余数法
@@ -144,20 +144,22 @@ Status Update(HashTable& H, int id, Student newStu) {
 // 以表格形式输出所有学生信息
 void TraverseTable(HashTable H) {
     cout << endl;
-    cout << "---------------------------------------------------------" << endl;
-    cout << left << setw(10) << "学号"
+    cout << "-------------------------------------------------------------------" << endl;
+    cout << left << setw(6) << "桶号"
+         << setw(10) << "学号"
          << setw(12) << "姓名"
          << setw(8) << "性别"
          << setw(8) << "年龄"
          << setw(10) << "成绩" << endl;
-    cout << "---------------------------------------------------------" << endl;
+    cout << "-------------------------------------------------------------------" << endl;
 
     bool empty = true;
     for (int i = 0; i < TABLE_SIZE; i++) {
         HashNode* p = H[i];
         while (p != NULL) {
             empty = false;
-            cout << left << setw(10) << p->data.id
+            cout << left << setw(6) << i
+                 << setw(10) << p->data.id
                  << setw(12) << p->data.name
                  << setw(8) << (p->data.gender == 0 ? "男" : "女")
                  << setw(8) << p->data.age
@@ -169,7 +171,7 @@ void TraverseTable(HashTable H) {
     if (empty) {
         cout << "（当前无学生记录）" << endl;
     }
-    cout << "---------------------------------------------------------" << endl;
+    cout << "-------------------------------------------------------------------" << endl;
 }
 
 // 从文件中读取学生数据到散列表

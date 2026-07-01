@@ -1,0 +1,10 @@
+flowchart TD
+    S([TraverseTable(H)]) --> A[输出表头+列标题 setw对齐 empty=true]
+    A --> B[for i=0..12 遍历桶 while p!=NULL<br/>输出一行数据 empty=false p=p->next]
+    B --> C{empty==true?}
+    C -->|是| D1[输出:无记录]
+    C -->|否| D2[输出表尾分隔线]
+    D1 --> D2 --> E([结束])
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style E fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style C fill:#FFF8E1,stroke:#F57F17

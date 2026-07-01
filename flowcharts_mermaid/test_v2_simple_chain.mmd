@@ -1,0 +1,11 @@
+%%{init: {"flowchart": {"wrappingWidth": 400}}}%%
+flowchart TD
+    M(["<b>学生信息管理系统</b>"])
+    M --> A["数据管理层: 浏览 添加 删除 修改<br/>TraverseTable Insert Delete Update"]
+    A --> B["数据检索层: 查找<br/>SearchById按学号 SearchByName按姓名"]
+    B --> C["数据导出层: 排序统计<br/>SortAndExport 排序+统计+导出"]
+    C --> D["存储层: 散列表链地址法<br/>HashFunc(id)=id%13 TABLE_SIZE=13"]
+    D --> End(["结束"])
+    style M fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style D fill:#FFF8E1,stroke:#F57F17

@@ -1,0 +1,17 @@
+flowchart TD
+    S([Update(H,id,newStu)]) --> A[SearchById查找]
+    A --> B{p==NULL?}
+    B -->|是| E1[未找到 return ERROR]
+    B -->|否| C{newStu.id!=id?}
+    C -->|否不变| D1[strcpy/赋值 原地修改 return OK]
+    C -->|是变了| C2{SearchById新id冲突?}
+    C2 -->|是冲突| E2[新学号已存在 return ERROR]
+    C2 -->|否| D2[Delete删旧 Insert插新 return OK]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style D1 fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style D2 fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style B fill:#FFF8E1,stroke:#F57F17
+    style C fill:#FFF8E1,stroke:#F57F17
+    style C2 fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828
+    style E2 fill:#FFEBEE,stroke:#C62828

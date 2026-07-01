@@ -52,7 +52,7 @@ const VISION_API_KEY = process.env.VISION_API_KEY || API_KEY;
 const VISION_API_MODEL = process.env.VISION_API_MODEL || API_MODEL;
 const VISION_API_BASE_URL = process.env.VISION_API_BASE_URL || API_BASE_URL;
 
-const SYNC_FILE = path.join(__dirname, "wechat_sync.json");
+const SYNC_FILE = path.join(scriptDir, "wechat_sync.json");
 
 // ── 主动消息配置 ──
 const PROACTIVE_ENABLED = process.env.PROACTIVE_ENABLED === "true";

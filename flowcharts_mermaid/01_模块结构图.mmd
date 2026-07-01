@@ -1,0 +1,11 @@
+%%{init: {"flowchart": {"wrappingWidth": 500}}}%%
+flowchart TD
+    M(["学生信息管理系统"])
+    M --> L1["数据管理: 浏览TraverseTable 添加Insert 删除Delete 修改Update"]
+    L1 --> L2["数据检索: 按学号查找SearchById 按姓名查找SearchByName"]
+    L2 --> L3["数据导出: 排序统计SortAndExport 提取排序统计文件导出"]
+    L3 --> L4["存储结构: 散列表链地址法 HashFunc(id)=id%%13 TABLE_SIZE=13"]
+    L4 --> End(["结束"])
+    style M fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style L4 fill:#E3F2FD,stroke:#1565C0

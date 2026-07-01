@@ -1,0 +1,22 @@
+%%{init: {"flowchart": {"wrappingWidth": 380}}}%%
+flowchart TD
+    S(["程序启动"]) --> A["InitTable 初始化"]
+    A --> B["LoadFromFile 加载数据"]
+    B --> C["showMenu 显示菜单"]
+    C --> D["cin>>choice 读输入"]
+    D --> E{"EOF或输入异常?"}
+    E -->|是| X1["break退出"]
+    E -->|否| F["clearInput 清缓冲"]
+    F --> G{"switch(choice)"}
+    G -->|"1~6"| H["执行对应功能"]
+    G -->|0| I["SaveToFile 保存退出"]
+    G -->|其他| J["提示无效选项"]
+    H --> K["循环回菜单"]
+    J --> K
+    K --> C
+    X1 --> End(["程序结束"])
+    I --> End
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style E fill:#FFF8E1,stroke:#F57F17
+    style G fill:#FFF8E1,stroke:#F57F17

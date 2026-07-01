@@ -1,0 +1,20 @@
+flowchart LR
+    S(["SortAndExport(H,file)"]) --> Chk{"total==0?"}
+    Chk -->|是| Err["输出:无记录<br/>return ERROR"]
+    Chk -->|否| G1["<b>提取</b><br/>new数组<br/>遍历散列表<br/>提取全部数据"]
+    G1 --> G2["<b>排序</b><br/>冒泡排序<br/>性别升序 男前女后<br/>同性别成绩降序"]
+    G2 --> G3["<b>统计</b><br/>累计 maleCount/malePass<br/>femaleCount/femalePass<br/>sumScore ≥60合格"]
+    G3 --> Calc["<b>计算</b><br/>avgScore=总分/总数<br/>maleRate 男生合格率<br/>femaleRate 女生合格率"]
+    Calc --> G4["<b>导出文件</b><br/>表头+排序后学生表格<br/>三项统计结果"]
+    G4 --> G5["<b>控制台输出</b><br/>男生/女生人数+合格率<br/>全班平均分"]
+    G5 --> Ok["delete[] arr<br/>输出成功<br/>return OK"]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style Ok fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style Chk fill:#FFF8E1,stroke:#F57F17
+    style Err fill:#FFEBEE,stroke:#C62828
+    style G1 fill:#E3F2FD,stroke:#1565C0
+    style G2 fill:#E3F2FD,stroke:#1565C0
+    style G3 fill:#E3F2FD,stroke:#1565C0
+    style G4 fill:#E3F2FD,stroke:#1565C0
+    style G5 fill:#E3F2FD,stroke:#1565C0
+    style Calc fill:#F3E5F5,stroke:#7B1FA2

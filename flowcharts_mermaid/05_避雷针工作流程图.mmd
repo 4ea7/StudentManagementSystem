@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 550}}}%%
+flowchart TD
+    S(["雷雨云携带负电荷靠近地面"])
+    S --> A["大地静电感应：正电荷被吸引至地表"]
+    A --> B["正电荷沿接地导体聚集到避雷针尖端"]
+    B --> C["尖端曲率半径极小，电场强度急剧升高"]
+    C --> D["空气被击穿电离，形成导电通道"]
+    D --> E["云层电荷→电离空气→金属体→接地装置→流入大地"]
+    E --> F["雷电能量安全泄放，周边建筑免受直击雷"]
+    F --> End(["结束"])
+    style S fill:#FFECB3,stroke:#FF8F00
+    style F fill:#C8E6C9,stroke:#2E7D32
+    style End fill:#C8E6C9,stroke:#2E7D32

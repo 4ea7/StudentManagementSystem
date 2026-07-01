@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 450}}}%%
+flowchart TD
+    S(["SearchById(H,id)"]) --> A["addr=HashFunc(id) p=H[addr]"]
+    A --> B{"while p!=NULL?"}
+    B -->|"p==NULL"| E1["return NULL"]
+    B -->|"p!=NULL"| C{"p->data.id==id?"}
+    C -->|是| D["return &(p->data)"]
+    C -->|否| C2["p=p->next"]
+    C2 --> B
+    E1 --> End(["结束"])
+    D --> End
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style E1 fill:#FFEBEE,stroke:#C62828
+    style B fill:#FFF8E1,stroke:#F57F17
+    style C fill:#FFF8E1,stroke:#F57F17

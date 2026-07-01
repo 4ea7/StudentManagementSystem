@@ -1,0 +1,8 @@
+%%{init: {"flowchart": {"htmlLabels": false, "wrappingWidth": 300}}}%%
+flowchart TD
+    S(["接上页: 统计计算与文件导出"]) --> F["步骤3: 遍历已排序数组进行统计 累计sumScore和男女生人数及合格人数"]
+    F --> G["计算三项统计指标: avgScore=总分/总数 maleRate=男生合格率 femaleRate=女生合格率"]
+    G --> H["步骤4: 写入文件并控制台输出 打开文件写入表头和排序表格及统计结果"]
+    H --> I["delete[] arr释放动态数组内存 输出报表已保存信息 return OK"]
+    style S fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style I fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px

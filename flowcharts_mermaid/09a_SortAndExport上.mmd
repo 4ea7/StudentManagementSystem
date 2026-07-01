@@ -1,0 +1,12 @@
+%%{init: {"flowchart": {"wrappingWidth": 420}}}%%
+flowchart TD
+    S(["SortAndExport(H,file)"]) --> A["total=CountStudents(H)"]
+    A --> B{"total==0?"}
+    B -->|是| E1["提示无记录 return ERROR"]
+    B -->|否| C["<b>1.提取</b> new数组 遍历散列表收集数据"]
+    C --> D["<b>2.冒泡排序</b> 性别升序(男前女后) 同性别成绩降序"]
+    D --> Cont["(接下页)"]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style Cont fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style B fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828

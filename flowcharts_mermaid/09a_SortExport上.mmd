@@ -1,0 +1,11 @@
+flowchart TD
+    S([SortAndExport 上]) --> A[total=CountStudents]
+    A --> B{total==0?}
+    B -->|是| E1[无记录 return ERROR]
+    B -->|否| C[步骤1 提取: new数组<br/>遍历散列表提取全部数据]
+    C --> D[步骤2 冒泡排序:<br/>性别升序男前女后 同性别成绩降序]
+    D --> Cont[(接下页)]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style Cont fill:#E0F7FA,stroke:#00838F
+    style B fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828

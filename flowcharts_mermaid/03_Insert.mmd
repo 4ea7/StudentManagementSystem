@@ -1,0 +1,15 @@
+flowchart TD
+    S([Insert(H,stu)]) --> A[SearchById查重]
+    A --> B{学号已存在?}
+    B -->|是重复| E1[输出:学号XX已存在 return ERROR]
+    B -->|否| C[addr=HashFunc p=new HashNode]
+    C --> D{p==NULL?}
+    D -->|是| E2[return OVERFLOW]
+    D -->|否| F[p->data=stu 头插:H[addr]=p]
+    F --> G[输出:成功添加 return OK]
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style G fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style B fill:#FFF8E1,stroke:#F57F17
+    style D fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828
+    style E2 fill:#FFEBEE,stroke:#C62828

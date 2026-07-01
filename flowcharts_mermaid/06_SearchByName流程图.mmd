@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 420}}}%%
+flowchart TD
+    S(["SearchByName(H,name)"]) --> A["for i=0..12 遍历桶"]
+    A --> B{"while p!=NULL?"}
+    B -->|"p==NULL"| B2["i++ 下一桶"]
+    B2 --> A
+    A -->|"i>=13"| E1["return NULL"]
+    B -->|"p!=NULL"| C{"strcmp==0?"}
+    C -->|是| D["return &(p->data)"]
+    C -->|否| C2["p=p->next"]
+    C2 --> B
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style D fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style E1 fill:#FFEBEE,stroke:#C62828
+    style B fill:#FFF8E1,stroke:#F57F17
+    style C fill:#FFF8E1,stroke:#F57F17

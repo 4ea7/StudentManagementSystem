@@ -1,0 +1,36 @@
+==================================================
+  微信 ↔ AI 桥接 (MVP)
+==================================================
+
+提供商: deepseek  模型: deepseek-chat
+
+未找到登录凭证，开始扫码登录…
+
+[23:29:32][login] 正在请求 QR 码…
+[23:29:32][login] 请用微信扫描以下二维码:
+
+  📱 QR Key: 8a803e4fd3ca1531ce96cc2fa7f27507
+
+  🖼️  二维码已保存: D:\Visual Studio\Project\weixin-claude-bridge\qr_code.png
+
+  请打开该图片文件，用微信扫描
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▀  ▄▄█▀▀ █ ▄▄▄▄▄ █
+█ █   █ █▀▄▄▄█▀▄▀██ █   █ █
+█ █▄▄▄█ █▀ ▄▄ ▄▄▀ █ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄▀▄▀ █ ▀▄█▄▄▄▄▄▄▄█
+█▄ ▄▄▄▀▄  ▀▀▀▀▄▀▄▄ █▄█ ▀ ██
+█▄▄▄█▄▀▄▄▄▀ ▀▄▄▄▄▄▀▄▀█ █▀ █
+█▀▄  ▄█▄▀█ █▀▄▄▄▄▄▄▄▀▄▀▄█▄█
+█ ██▀▀▀▄▀▀█▄▀█▄▀  ▀▄▀▄ █▄ █
+█▄███▄▄▄▄▀▀▄▀▀▄▄▄ ▄▄▄ ▀▄▀██
+█ ▄▄▄▄▄ █▄ ▄█▀▄▀▀ █▄█ █▄█ █
+█ █   █ █ ▀▄▀▄▄▀▄▄  ▄ ▄▄█▄█
+█ █▄▄▄█ █ █ ▀▄▄█▄▀█▀▄█▀██ █
+█▄▄▄▄▄▄▄█▄█▄█▄▄▄▄█▄▄▄██▄▄▄█
+
+Fatal: Error: QR 码已过期，请重新启动
+    at startQrLogin (file:///D:/Visual%20Studio/Project/weixin-claude-bridge/bridge.js:172:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async main (file:///D:/Visual%20Studio/Project/weixin-claude-bridge/bridge.js:330:20)

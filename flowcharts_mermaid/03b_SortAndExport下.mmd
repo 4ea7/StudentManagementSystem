@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 480}}}%%
+flowchart TD
+    S(["接上页"]) --> F["<b>3.统计</b> 累计男女生人数及合格人数 sumScore"]
+    F --> G["<b>4.计算</b> avgScore maleRate femaleRate"]
+    G --> H["<b>5.导出</b> 写文件:表头+排序表+统计 控制台同步输出"]
+    H --> I["delete[] arr 释放内存"]
+    I --> End(["结束"])
+    style S fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px

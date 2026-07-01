@@ -1,0 +1,6 @@
+flowchart TD
+    S([SortAndExport 下 接上页]) --> F[步骤3 统计: 遍历已排序数组<br/>累计sumScore male/female Count/Pass]
+    F --> G[计算: avgScore maleRate femaleRate]
+    G --> H[步骤4 导出: 写文件+控制台输出<br/>delete[] arr return OK]
+    style S fill:#E0F7FA,stroke:#00838F
+    style H fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px

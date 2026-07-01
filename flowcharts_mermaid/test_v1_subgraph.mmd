@@ -1,0 +1,23 @@
+%%{init: {"flowchart": {"wrappingWidth": 400}}}%%
+flowchart TD
+    subgraph top["学生信息管理系统"]
+        M["<b>主菜单</b>"]
+    end
+    subgraph g1["数据管理"]
+        direction LR
+        R1["1.浏览"] --- R2["2.添加"] --- R3["3.删除"] --- R4["4.修改"]
+    end
+    subgraph g2["数据检索"]
+        direction LR
+        R5["5.SearchById"] --- R6["6.SearchByName"]
+    end
+    subgraph g3["数据导出"]
+        R7["7.SortAndExport"]
+    end
+    subgraph bottom["存储层"]
+        Base["散列表链地址法 HashFunc=id%13"]
+    end
+    top --> g1 --> g2 --> g3 --> bottom --> End(["结束"])
+    style M fill:#C8E6C9,stroke:#2E7D32
+    style End fill:#C8E6C9,stroke:#2E7D32
+    style Base fill:#FFF8E1,stroke:#F57F17

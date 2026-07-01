@@ -1,0 +1,21 @@
+%%{init: {"flowchart": {"wrappingWidth": 420}}}%%
+flowchart TD
+    S(["Delete(H,id)"]) --> A["计算addr=HashFunc(id)<br/>p=H[addr] prev=NULL"]
+    A --> B{"while p!=NULL?"}
+    B -->|"p==NULL"| E1["提示未找到 return ERROR"]
+    B -->|"p!=NULL"| C{"p->data.id==id?"}
+    C -->|否| C1["prev=p p=p->next"]
+    C1 --> B
+    C -->|"是 找到"| D{"prev==NULL? 桶首?"}
+    D -->|"是"| D1["H[addr]=p->next"]
+    D -->|"否"| D2["prev->next=p->next"]
+    D1 --> F["delete p 提示成功 return OK"]
+    D2 --> F
+    E1 --> End(["结束"])
+    F --> End
+    style S fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style End fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    style B fill:#FFF8E1,stroke:#F57F17
+    style C fill:#FFF8E1,stroke:#F57F17
+    style D fill:#FFF8E1,stroke:#F57F17
+    style E1 fill:#FFEBEE,stroke:#C62828

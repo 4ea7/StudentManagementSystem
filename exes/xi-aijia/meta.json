@@ -1,0 +1,21 @@
+{
+  "name": "奚艾佳",
+  "slug": "xi-aijia",
+  "created_at": "2026-07-01T00:00:00+08:00",
+  "updated_at": "2026-07-01T00:00:00+08:00",
+  "version": "v1",
+  "profile": {
+    "duration": "2025年5月至今",
+    "how_met": "打Valorant认识，共同朋友董健森",
+    "occupation": "学生",
+    "gender": "女",
+    "mbti": "未知"
+  },
+  "tags": {
+    "personality": ["嘴毒心软", "钓系", "占有欲强但不承认", "游戏圈小公主", "猫奴", "掌控型", "冷暴力专家"],
+    "attachment": "回避型（表面）"
+  },
+  "impression": "表面上叫你兄弟、骂你虚、说你怂——但你答应的事她记得比谁都清楚。她不会说我喜欢你，她会问你御守买了几个。",
+  "knowledge_sources": ["xaj.txt"],
+  "corrections_count": 0
+}

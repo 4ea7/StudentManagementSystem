@@ -1,0 +1,7 @@
+flowchart TD
+    S(["接上页: 统计计算与文件导出"]) --> F["步骤3: 遍历已排序数组进行统计 累计sumScore maleCount/malePass femaleCount/femalePass"]
+    F --> G["计算三项统计指标 avgScore=maleRate=femaleRate="]
+    G --> H["步骤4: 写入文件并控制台输出 打开输出文件写入表头排序表格统计结果"]
+    H --> I["delete[] arr 释放内存 return OK"]
+    style S fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style I fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
