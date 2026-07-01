@@ -519,6 +519,9 @@ bot.on("message", async (msg) => {
         lines.push(`${lines.length + 1}. ${rule}`);
         fs.writeFileSync(CORRECTIONS_FILE, lines.join("\n") + "\n");
         log("📝", `新规则: ${rule}`);
+        // 写入对话历史，AI 下次回复就能看到这条指令
+        if (!sessions.has(from)) sessions.set(from, []);
+        sessions.get(from).push({ role: "user", content: `（你刚刚收到一条系统指令：${rule}。从下一句话开始严格遵守。）` });
         await bot.sendMsg(`已添加规则 #${lines.length}: ${rule}，立即生效`, from);
       }
       return;
