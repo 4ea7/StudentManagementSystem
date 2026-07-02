@@ -96,11 +96,19 @@ The vcxproj compiles exactly one source file. To change which program builds:
 
 #### 层级规则
 
-| 层级 | 并行 | 模型 | 职责 |
-|------|------|------|------|
-| Tier 1 本地执行 | 多个 Agent 并行 | Haiku（读）/ Sonnet（分析+写） | 文件搜索、代码编辑、git 操作、构建 |
-| Tier 2 信息搜索 | 与 Tier 1 并行 | Haiku（轻量搜索） | Web 搜索文档、API、包、方案 |
-| Tier 3 服务器 | 独立，不阻塞本地 | 默认 | SSH 管理服务器、部署、日志 |
+| 层级 | 最大并发 | 模型 | 职责 |
+|------|---------|------|------|
+| Tier 1 本地执行 | 4~6 个 | Haiku（读）/ Sonnet（分析+写） | 文件搜索、代码编辑、git 操作、构建 |
+| Tier 2 信息搜索 | 1~2 个 | Haiku（轻量搜索） | Web 搜索文档、API、包、方案 |
+| Tier 3 服务器 | 2~3 个 | 默认 | SSH 管理服务器、部署、日志 |
+| **全局上限** | **≤10 个** | — | 超出排队等待，防止 API 限流 |
+
+#### 并发约束
+
+1. **写操作串行**：多个 Agent 可同时读文件/搜索，但同时只能有一个 Agent 执行 Edit/Write，防止文件冲突
+2. **Tier 2 限制**：WebSearch 接口限流严重，同时最多 2 个搜索 Agent，多开只会排队
+3. **Tier 3 限制**：SSH 连接受服务器 MaxStartups 限制，同时最多 3 个连接
+4. **读优先**：Grep/Glob/Read 不限并发，越多越快
 
 #### 核心约束
 
