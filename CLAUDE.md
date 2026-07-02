@@ -69,6 +69,37 @@ The vcxproj compiles exactly one source file. To change which program builds:
 ### 交流约定
 - **始终使用中文回复**，无论是对话、代码注释还是文档说明。
 
+### Agent Teams（智能团队模式）— 默认开启
+
+**核心规则**：收到任务后自动拆分为无依赖子任务，分配独立 Agent 并行执行，全部完成后汇总合并。
+
+#### 拆分原则
+1. 识别任务中的独立维度（文件搜索 vs 服务器检查 vs 代码审计 vs 版本控制）
+2. 每个维度一个 Agent，同时启动
+3. 读操作（搜索/检查/审计）永不阻塞彼此
+4. 写操作在所有相关读操作完成后执行
+5. 汇总结果时去重、合并、优先级排序
+
+#### 模型选择
+- **Haiku** (`model: "haiku"`)：简单搜索、单文件读取、日志查看、git status、状态检查
+- **Sonnet** (`model: "sonnet"`)：代码分析、安全审计、复杂逻辑、代码生成、重构
+- **默认** (不设 model)：通用任务、文件编辑、SSH 操作
+
+#### 典型并行组合
+```
+用户请求 → 自动拆分 →
+  ├─ Agent(搜索代码, haiku)     ← 轻量搜索
+  ├─ Agent(安全审计, sonnet)    ← 复杂分析
+  ├─ Agent(服务器诊断, haiku)   ← 日志状态
+  └─ Agent(git 操作)           ← 版本控制
+→ 汇总 → 执行写操作 → 验证
+```
+
+#### 示例
+- "检查服务器状态并推送代码" → `Agent(SSH诊断, haiku)` + `Agent(git push)` 并行
+- "审计 API key 泄露并修复" → `Agent(搜索泄露点, haiku)` + `Agent(检查git历史, sonnet)` 并行，汇总后统一修复
+- "重构某个模块" → `Agent(分析现有代码, sonnet)` → `Agent(生成新代码, sonnet)` → `Agent(审查差异, sonnet)`
+
 ### Key Conventions
 - Header-only implementation: `bitree.h`, `linklist.h`, and `hash_table.h` contain full function definitions.
 - `using namespace std;` is used globally in all source and header files.
