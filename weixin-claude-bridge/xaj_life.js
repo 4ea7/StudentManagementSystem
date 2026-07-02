@@ -1137,8 +1137,10 @@ function calculateWantToTalk(state, period) {
   const threshold = 5.5 + (Math.random() - 0.5) * 2; // 加一点随机波动
   const newWantToTalk = score >= threshold;
 
-  // 如果 wantToTalk 发生变化，重置原因
-  if (newWantToTalk !== state.wantToTalk) {
+  // 如果 wantToTalk 发生变化，或原因与当前状态矛盾，重置原因
+  const sleepReasons = ["在睡觉", "失眠了想找人", "终于睡着了"];
+  if (newWantToTalk !== state.wantToTalk ||
+      (sleepReasons.includes(state.wantToTalkReason) && state.activity !== "睡觉" && state.activity !== "失眠中")) {
     state.wantToTalkReason = null;
   }
   state.wantToTalk = newWantToTalk;
