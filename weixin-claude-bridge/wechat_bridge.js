@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 // xaj 人生模拟引擎 — 延迟加载，避免缺失时阻断 bridge 启动
 let _xajGenerateStateDesc = null;
 let _xajGenerateProactivePrompt = null;
+let _xajGenerateImpulsePrompt = null;
 
 async function ensureXajImports() {
   if (_xajGenerateStateDesc) return;
@@ -22,12 +23,14 @@ async function ensureXajImports() {
     const mod = await import("./xaj_life.js");
     _xajGenerateStateDesc = mod.generateStateDescription;
     _xajGenerateProactivePrompt = mod.generateProactivePrompt;
+    _xajGenerateImpulsePrompt = mod.generateImpulsePrompt;
     log("✅", "xaj_life.js 已加载");
   } catch (e) {
     log("⚠️", `xaj_life.js 加载失败: ${e.message}，将跳过人生状态注入`);
     // 设置空函数避免后续 null 调用
     _xajGenerateStateDesc = () => null;
     _xajGenerateProactivePrompt = () => null;
+    _xajGenerateImpulsePrompt = () => null;
   }
 }
 
@@ -547,9 +550,13 @@ async function sendReply(reply, to) {
   log("✅", `已发送 ${messages.length} 条`);
 }
 
-// ── 主动消息 ──
+// ── 主动消息（事件驱动）──
+//  不再使用随机间隔定时器。改为定期检查 xaj_state.json 的 impulseToMessage，
+//  当 xaj 的生活中发生"值得告诉 GSQ"的事件时，才触发主动消息。
+//  intensity → 发送策略：high 立即发、medium 延迟发、low 可能不发。
+
 let proactiveTargetName = null;  // 解析后的 UserName
-let proactiveTimer = null;
+let proactiveTimer = null;       // 轮询定时器 / 延迟发送定时器
 let lastInteractionTime = Date.now();
 
 // 在联系人中查找目标 UserName
@@ -560,15 +567,6 @@ function resolveTarget(contacts) {
     if (name === PROACTIVE_TARGET) return userName;
   }
   return null;
-}
-
-// 随机间隔（偏自然：大部分在中段，偶尔很短或很长）
-function randomInterval() {
-  // 用两个随机数相乘，产生偏态分布——大部分在中间，偶尔很短偶尔很长
-  const r1 = Math.random();
-  const r2 = Math.random();
-  const factor = (r1 + r2) / 2; // 三角分布：峰值在中段
-  return (PROACTIVE_MIN + factor * (PROACTIVE_MAX - PROACTIVE_MIN)) * 60 * 1000;
 }
 
 // 检查是否在夜间免打扰时段
@@ -592,29 +590,137 @@ function msUntilActive() {
   return activeTime - now;
 }
 
-// 生成并发送主动消息
-async function sendProactive() {
+/**
+ * 清除 xaj_state.json 中的 impulseToMessage，标记为已处理。
+ * 防止同一条冲动被重复发送。
+ */
+function clearImpulseToMessage() {
   try {
-    if (!proactiveTargetName || !bot?.CONF) return;
+    const state = loadXajState();
+    if (!state || !state.impulseToMessage) return;
+    state.impulseToMessage = { triggered: false, reason: null, intensity: null, whatToSay: null, timestamp: null };
+    fs.writeFileSync(XAJ_STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (e) {
+    // 静默失败
+  }
+}
 
+/**
+ * 事件驱动的主动消息检查与发送。
+ * 由轮询定时器调用（每 30-60 秒一次）。
+ * 检查 xaj_state.json → 如果有 impulseToMessage → 按 intensity 决定是否发/何时发。
+ */
+async function checkAndSendProactive() {
+  try {
+    if (!proactiveTargetName || !bot?.CONF) {
+      scheduleNextPoll();
+      return;
+    }
+
+    // 夜间免打扰：不检查，等天亮再说
+    if (isQuietHours()) {
+      const delay = msUntilActive() + Math.random() * 30 * 60 * 1000; // 天亮后 + 0~30min 随机
+      const nextTime = new Date(Date.now() + delay).toLocaleTimeString();
+      log("🌙", `免打扰时段，下次检查: ${nextTime}`);
+      proactiveTimer = setTimeout(checkAndSendProactive, delay);
+      return;
+    }
+
+    // 读取 xaj 状态，检查是否有冲动
+    const xajState = loadXajState();
+    if (!xajState || !xajState.impulseToMessage || !xajState.impulseToMessage.triggered) {
+      // 没有冲动，继续轮询
+      scheduleNextPoll();
+      return;
+    }
+
+    const impulse = xajState.impulseToMessage;
+    const intensity = impulse.intensity || "medium";
+
+    // 检查冷却：对方刚聊完 15 分钟内，low/medium 不打扰
+    const quietTime = (Date.now() - lastInteractionTime) / 1000 / 60;
+    if (quietTime < PROACTIVE_COOLDOWN && intensity !== "high") {
+      log("⏸️", `冷却中 (${quietTime.toFixed(0)}/${PROACTIVE_COOLDOWN}min)，跳过 ${intensity} 冲动`);
+      // 清除这条冲动（已经过了最佳时机）
+      clearImpulseToMessage();
+      scheduleNextPoll();
+      return;
+    }
+
+    // 最近一条是 AI 发的且对方没回 → low/medium 不连发
+    const history = sessions.get(proactiveTargetName) || [];
+    const lastMsg = history[history.length - 1];
+    if (lastMsg && lastMsg.role === "assistant" && quietTime < PROACTIVE_COOLDOWN * 2 && intensity !== "high") {
+      log("⏸️", `上次消息未回复，跳过 ${intensity} 冲动`);
+      clearImpulseToMessage();
+      scheduleNextPoll();
+      return;
+    }
+
+    // 按 intensity 决定发送策略
+    if (intensity === "high") {
+      // 立即发送
+      log("💡", `检测到 high 冲动: ${impulse.reason?.slice(0, 40)}`);
+      await sendImpulseMessage(xajState, impulse);
+    } else if (intensity === "medium") {
+      // 延迟 1-10 分钟后发送
+      const delay = (1 + Math.random() * 9) * 60 * 1000; // 1~10 min
+      log("💡", `检测到 medium 冲动: ${impulse.reason?.slice(0, 40)} — ${(delay / 60000).toFixed(0)}分钟后发送`);
+      proactiveTimer = setTimeout(async () => {
+        // 延迟后再次检查免打扰和冷却
+        if (isQuietHours()) {
+          log("🌙", `延迟到发送时已进入免打扰，取消`);
+          clearImpulseToMessage();
+          scheduleNextPoll();
+          return;
+        }
+        const freshState = loadXajState();
+        if (freshState && freshState.impulseToMessage && freshState.impulseToMessage.triggered) {
+          await sendImpulseMessage(freshState, freshState.impulseToMessage);
+        }
+        scheduleNextPoll();
+      }, delay);
+      return; // 不 scheduleNextPoll，等延迟回调
+    } else {
+      // low: 50% 概率发送
+      if (Math.random() < 0.5) {
+        log("💡", `检测到 low 冲动: ${impulse.reason?.slice(0, 40)} — 抽中发送`);
+        // low 也加一点随机延迟（0-5 分钟）
+        const delay = Math.random() * 5 * 60 * 1000;
+        proactiveTimer = setTimeout(async () => {
+          if (isQuietHours()) {
+            clearImpulseToMessage();
+            scheduleNextPoll();
+            return;
+          }
+          const freshState = loadXajState();
+          if (freshState && freshState.impulseToMessage && freshState.impulseToMessage.triggered) {
+            await sendImpulseMessage(freshState, freshState.impulseToMessage);
+          }
+          scheduleNextPoll();
+        }, delay);
+        return;
+      } else {
+        log("💤", `检测到 low 冲动: ${impulse.reason?.slice(0, 40)} — 抽空，不发`);
+        clearImpulseToMessage();
+      }
+    }
+
+    scheduleNextPoll();
+  } catch (err) {
+    log("⚠️", `主动消息检查失败: ${err.message}`);
+    scheduleNextPoll();
+  }
+}
+
+/**
+ * 发送一条事件驱动的主动消息。
+ * 使用 impulseToMessage + 当前状态来构建 prompt，确保消息跟她此刻的状态一致。
+ */
+async function sendImpulseMessage(xajState, impulse) {
+  try {
     const history = sessions.get(proactiveTargetName) || [];
     const prompt = loadSystemPrompt();
-
-    // 检查冷却：对方刚聊完不久，不打扰
-    const quietTime = (Date.now() - lastInteractionTime) / 1000 / 60;
-    if (quietTime < PROACTIVE_COOLDOWN) {
-      log("⏸️", `冷却中 (${quietTime.toFixed(0)}/${PROACTIVE_COOLDOWN}min)`);
-      scheduleNext();
-      return;
-    }
-
-    // 最近一条是 AI 发的且对方没回 → 不要连发骚扰
-    const lastMsg = history[history.length - 1];
-    if (lastMsg && lastMsg.role === "assistant" && quietTime < PROACTIVE_COOLDOWN * 2) {
-      log("⏸️", `上次消息未回复，延长等待`);
-      scheduleNext();
-      return;
-    }
 
     // 拿最近历史作为上下文（避免复读）
     const recentHistory = history.slice(-6);
@@ -622,40 +728,50 @@ async function sendProactive() {
       ? `\n\n最近聊天（参考，别复读）：\n${recentHistory.map(m => `[${m.role === "user" ? PROACTIVE_TARGET : "你"}]: ${typeof m.content === "string" ? m.content.slice(0, 80) : "[非文字]"}`).join("\n")}`
       : "";
 
-    // 使用 xaj 人生模拟引擎生成状态感知的主动消息提示词
+    // 使用 impulse 数据构建提示词
     let proactivePrompt;
-    const xajState = loadXajState();
-    if (xajState && _xajGenerateProactivePrompt) {
-      // 补充内部字段供 generateProactivePrompt 使用
+    if (xajState && _xajGenerateImpulsePrompt) {
+      // 补充内部字段
       if (xajState.lastInteraction) {
         const last = new Date(xajState.lastInteraction);
         xajState._hoursSinceInteraction = (Date.now() - last) / (1000 * 60 * 60);
       } else {
         xajState._hoursSinceInteraction = null;
       }
+      proactivePrompt = _xajGenerateImpulsePrompt(xajState, PROACTIVE_TARGET);
+    }
+
+    // 如果 impulse prompt 生成失败，回退到旧的 generateProactivePrompt
+    if (!proactivePrompt && _xajGenerateProactivePrompt) {
+      if (xajState.lastInteraction) {
+        const last = new Date(xajState.lastInteraction);
+        xajState._hoursSinceInteraction = (Date.now() - last) / (1000 * 60 * 60);
+      }
       proactivePrompt = _xajGenerateProactivePrompt(xajState, PROACTIVE_TARGET);
-    } else {
-      // 回退：随机选一种发起方式，避免每次都一样
-      const moods = [
-        "你刚看到一个东西/发生了一件小事，想跟他分享。直接说事，不要铺垫。",
-        "你想起之前他说过的一句话/答应你的一件事，追问一下。",
-        "你突然想到他就找他。不要问在干嘛，直接说你想说的。",
-        "你有点无聊，想看他猫。直接要。",
-        "你在打游戏/看视频/刷到有意思的东西，发给他看。",
-      ];
-      const mood = moods[Math.floor(Math.random() * moods.length)];
-      proactivePrompt = `你现在想主动找 ${PROACTIVE_TARGET} 聊天。${mood}
+    }
+
+    // 最终回退：直接用 impulse 数据构建简单 prompt
+    if (!proactivePrompt) {
+      const reason = impulse.reason || "发生了一件小事";
+      const whatToSay = impulse.whatToSay || "想跟你说个事";
+      proactivePrompt = `你现在想主动找 ${PROACTIVE_TARGET} 聊天。
+
+为什么找他：${reason}
+你想说的：${whatToSay}
+
 规则：
 - 1-3句，极短，发微信不是写小作文
 - 不要打招呼（不说"在吗""hi"之类）
 - 不要用 --- 分隔符，就发一条
-- 用你的自然语气
-- 不要和最近聊天记录重复${contextStr}`;
+- 用你的自然语气${contextStr}`;
     }
 
     const reply = await callAI(proactivePrompt, prompt, []);
     const text = reply.replace(/---.*/s, "").trim();
-    if (!text) return;
+    if (!text) {
+      clearImpulseToMessage();
+      return;
+    }
 
     log("💬", `主动 → ${PROACTIVE_TARGET}: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`);
 
@@ -665,36 +781,23 @@ async function sendProactive() {
     await bot.sendMsg(text, proactiveTargetName);
     log("✅", "主动消息已发送");
   } catch (err) {
-    log("⚠️", `主动消息失败: ${err.message}`);
+    log("⚠️", `主动消息发送失败: ${err.message}`);
   }
-  scheduleNext();
+
+  // 无论成功失败，清除冲动（避免死循环重试）
+  clearImpulseToMessage();
 }
 
-function scheduleNext() {
+/**
+ * 安排下一次轮询（30-60 秒后）。
+ * 轮询间隔加入少量随机，避免与 xaj_life tick 严格同步。
+ */
+function scheduleNextPoll() {
   if (proactiveTimer) clearTimeout(proactiveTimer);
   if (!PROACTIVE_ENABLED || !proactiveTargetName) return;
 
-  let delay = randomInterval();
-
-  // 如果下次落在免打扰时段，推迟到免打扰结束后
-  const nextAt = Date.now() + delay;
-  const nextHour = new Date(nextAt).getHours();
-  if (QUIET_START < QUIET_END) {
-    // 活跃时段 8-23，超出即免打扰
-    if (nextHour < QUIET_START || nextHour >= QUIET_END) {
-      delay = msUntilActive() + Math.random() * 60 * 60 * 1000; // 免打扰结束 + 0~1h 随机
-      log("🌙", `延迟至免打扰结束后`);
-    }
-  } else {
-    if (nextHour >= QUIET_START || nextHour < QUIET_END) {
-      delay = msUntilActive() + Math.random() * 60 * 60 * 1000;
-      log("🌙", `延迟至免打扰结束后`);
-    }
-  }
-
-  const nextTime = new Date(Date.now() + delay).toLocaleTimeString();
-  log("⏰", `下次主动消息: ${nextTime} (${(delay / 3600000).toFixed(1)}小时后)`);
-  proactiveTimer = setTimeout(sendProactive, delay);
+  const delay = (30 + Math.random() * 30) * 1000; // 30~60 秒
+  proactiveTimer = setTimeout(checkAndSendProactive, delay);
 }
 
 function startProactive() {
@@ -711,10 +814,10 @@ function startProactive() {
     return;
   }
   log("🎯", `主动消息目标: ${PROACTIVE_TARGET} → ${proactiveTargetName}`);
-  // 启动后等 5 分钟再发首条，给人缓冲
-  const firstDelay = 5 * 60 * 1000;
-  log("⏰", `首条主动消息: ${new Date(Date.now() + firstDelay).toLocaleTimeString()} (5分钟后)`);
-  proactiveTimer = setTimeout(sendProactive, firstDelay);
+  log("💡", `事件驱动模式: 每 30-60s 检查 xaj 的冲动信号`);
+
+  // 启动后等 30 秒开始首次检查（让 xaj_life 有机会产生初始状态）
+  proactiveTimer = setTimeout(checkAndSendProactive, 30 * 1000);
 }
 
 // ── 收到消息 ──

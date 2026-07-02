@@ -147,6 +147,12 @@ const RANDOM_EVENTS = [
         "他要是看到我这么猛肯定惊了",
         "队友终于不坑了"
       ]);
+      // 打瓦连胜 → 想炫耀
+      setImpulse(s,
+        `打瓦连赢${s.gaming.streak}把，手感火热`,
+        "medium",
+        pickRandom(["跟你说个事", "我今天好猛", "猜猜我打瓦怎么了"])
+      );
     },
     description: "打瓦连赢三把，心情大好"
   },
@@ -166,6 +172,12 @@ const RANDOM_EVENTS = [
         "这个段位有毒",
         "不想打了但又不想认输"
       ]);
+      // 打瓦连跪 → 可能想吐槽也可能不想说话
+      setImpulse(s,
+        `打瓦连跪${Math.abs(s.gaming.streak)}把，队友不是人`,
+        "low",
+        pickRandom(["烦死了", "不想说话", "队友是人机吧"])
+      );
     },
     description: "打瓦连跪，心情烂，谁都不想理"
   },
@@ -181,6 +193,12 @@ const RANDOM_EVENTS = [
       s.wantToTalk = true;
       s.wantToTalkReason = "C了想炫耀";
       s.thinkingAbout = "这把我真猛，想截图发给他";
+      // C 了 MVP → 特别想炫
+      setImpulse(s,
+        "刚C了一把MVP，这把我真猛",
+        "high",
+        pickRandom(["你猜我打瓦怎么了", "给你看个东西", "我今天好猛", "MVP 懂吗"])
+      );
     },
     description: "C了一把拿了MVP，想炫耀"
   },
@@ -261,6 +279,12 @@ const RANDOM_EVENTS = [
         "太阳穴好胀，是不是昨晚睡太晚了",
         "头好痛，想关机"
       ]);
+      // 头疼 → 想被关心但不直说
+      setImpulse(s,
+        "头疼，太阳穴一跳一跳的",
+        "medium",
+        pickRandom(["头好痛", "不舒服", "难受"])
+      );
     },
     description: "头疼"
   },
@@ -309,6 +333,12 @@ const RANDOM_EVENTS = [
       ]);
       s.wantToTalk = true;
       s.wantToTalkReason = "有八卦想分享";
+      // 闺蜜发来八卦 → 想分享
+      setImpulse(s,
+        "闺蜜刚发了个八卦笑死我了",
+        "medium",
+        pickRandom(["跟你说个事", "你猜我闺蜜跟我说了什么", "笑死我了"])
+      );
     },
     description: "闺蜜发来八卦，想找人分享"
   },
@@ -326,6 +356,12 @@ const RANDOM_EVENTS = [
       ]);
       s.wantToTalk = true;
       s.wantToTalkReason = "看到猫想分享";
+      // 看到猫 → 几乎必发
+      setImpulse(s,
+        pickRandom(["在图书馆门口看到一只橘猫，蹲下来拍了照", "路上看到一只猫，好可爱想发给他", "小区那只流浪猫又出现了，想拍给他看"]),
+        "high",
+        pickRandom(["给你看个东西", "你看这个", "猫", "好可爱啊啊啊"])
+      );
     },
     description: "看到一只猫，心情大好"
   },
@@ -339,6 +375,12 @@ const RANDOM_EVENTS = [
       s.moodValue = Math.min(10, s.moodValue + 2);
       s.mood = resolveMoodLabel(s.moodValue);
       s.thinkingAbout = "小区那只橘猫又胖了";
+      // 喂猫 → 想分享
+      setImpulse(s,
+        "去喂小区流浪猫了，那只橘猫又胖了",
+        "medium",
+        pickRandom(["给你看猫", "猫又胖了", "你看"])
+      );
     },
     description: "去喂小区流浪猫"
   },
@@ -359,6 +401,12 @@ const RANDOM_EVENTS = [
         "他在干嘛呢…算了不想了",
         "明天还要上课，现在都几点了"
       ]);
+      // 失眠 → 想找人
+      setImpulse(s,
+        "失眠了翻来覆去睡不着",
+        "medium",
+        pickRandom(["睡不着", "在吗", "你睡了吗"])
+      );
     },
     description: "失眠了"
   },
@@ -389,6 +437,12 @@ const RANDOM_EVENTS = [
       ]);
       s.wantToTalk = s.moodValue >= 5;
       if (s.wantToTalk) s.wantToTalkReason = "刷到好笑的东西想分享";
+      // 刷到好笑的 → 想分享
+      setImpulse(s,
+        pickRandom(["刷到一个好笑的视频，差点在课堂上笑出声", "刷到一个好抽象的东西", "看到一个笑死的评论"]),
+        "medium",
+        pickRandom(["你看这个", "笑死我了", "给你看个好笑的"])
+      );
     },
     description: "刷到好笑的视频"
   },
@@ -405,6 +459,12 @@ const RANDOM_EVENTS = [
       ]);
       s.wantToTalk = s.moodValue >= 6;
       s.wantToTalkReason = s.wantToTalk ? "心情不好想要安慰" : "心情不好不想说话";
+      // 心情突然低落 → 可能想找他，也可能不想
+      setImpulse(s,
+        "刷到一条让人难过的内容，心里闷闷的",
+        "low",
+        pickRandom(["唉", "心情不好", "算了"])
+      );
     },
     description: "刷到让人难过的内容"
   },
@@ -449,6 +509,32 @@ const RANDOM_EVENTS = [
 
   // ── 跟他有关 ──
   {
+    id: "dream_of_him",
+    probability: 0.002,  // 偶尔梦到
+    condition: (s) => s.activity === "睡觉" && s._hour >= 2 && s._hour < 9,
+    apply(s) {
+      // 梦到他了——在睡觉中短暂醒来意识到
+      s.activity = "失眠翻来覆去";
+      s.location = "在家床上";
+      s.moodValue = Math.min(10, s.moodValue + 1);
+      s.mood = resolveMoodLabel(s.moodValue);
+      s.wantToTalk = true;
+      s.wantToTalkReason = "梦到他了想说但又不好意思";
+      s.thinkingAbout = pickRandom([
+        "刚梦到他了…梦到什么记不太清了，但是感觉怪怪的",
+        "居然梦到他了，什么意思啊这是",
+        "梦到他了，醒来以后心跳好快"
+      ]);
+      // 梦到他 → high 但可能不好意思说
+      setImpulse(s,
+        pickRandom(["梦到他了，醒来心脏跳好快", "居然梦到他了，梦到什么记不太清", "梦到他了…什么意思啊这是"]),
+        "high",
+        pickRandom(["我跟你说个事", "你猜我梦到什么了", "算了不说了", "刚刚…"])
+      );
+    },
+    description: "梦到他了，醒来恍惚"
+  },
+  {
     id: "miss_him",
     probability: 0.005,
     condition: (s) => {
@@ -463,6 +549,12 @@ const RANDOM_EVENTS = [
         "怎么不找我",
         "有点想找他但又不想主动"
       ]);
+      // 想他了 → 想找他但可能不好意思，归为 medium
+      setImpulse(s,
+        "在想他在干嘛，有点想找他",
+        "medium",
+        pickRandom(["在干嘛", "在吗", "干嘛呢"])
+      );
     },
     description: "想他了"
   },
@@ -481,6 +573,12 @@ const RANDOM_EVENTS = [
           s.moodValue = Math.min(10, s.moodValue + 0.5);
           s.wantToTalk = true;
           s.wantToTalkReason = "想起他说过的话";
+          // 想起他答应过的事 → 想追问
+          setImpulse(s,
+            `突然想起他答应过的: ${mem.content.slice(0, 40)}`,
+            "medium",
+            pickRandom(["你之前是不是说过", "你是不是忘了", "我问你件事"])
+          );
         }
       }
     },
@@ -574,6 +672,12 @@ const RANDOM_EVENTS = [
       s.moodValue = Math.min(10, s.moodValue + 1);
       s.wantToTalk = true;
       s.wantToTalkReason = "突然想去旅行，想跟他说";
+      // 突然想去旅行 → 想分享这个念头
+      setImpulse(s,
+        pickRandom(["突然好想去海边", "想去日本，存的钱应该够了吧", "好想出去玩"]),
+        "medium",
+        pickRandom(["好想出去玩", "想去海边", "什么时候出去玩"])
+      );
     },
     description: "突然想去旅行"
   },
@@ -664,6 +768,23 @@ function resolveMoodLabel(value) {
   if (value >= 2.5) return "烦躁";
   if (value >= 1.5) return "心情很差";
   return "烦死了";
+}
+
+/**
+ * 在事件 apply() 中便捷设置主动消息冲动。
+ * @param {object} state - 当前状态
+ * @param {string} reason - 触发原因描述
+ * @param {string} intensity - "high" | "medium" | "low"
+ * @param {string} whatToSay - 她想说的话的大意
+ */
+function setImpulse(state, reason, intensity, whatToSay) {
+  state.impulseToMessage = {
+    triggered: true,
+    reason,
+    intensity,
+    whatToSay,
+    timestamp: new Date().toISOString()
+  };
 }
 
 /**
@@ -831,6 +952,10 @@ function normalizeState(state) {
   if (!Array.isArray(state.physical)) {
     state.physical = [];
   }
+  // 确保 impulseToMessage 字段完整
+  if (!state.impulseToMessage || typeof state.impulseToMessage !== "object") {
+    state.impulseToMessage = { triggered: false, reason: null, intensity: null, whatToSay: null, timestamp: null };
+  }
   return state;
 }
 
@@ -855,6 +980,14 @@ function createInitialState() {
     unreadMessages: 0,
     wantToTalk: true,
     wantToTalkReason: null,
+    // 事件驱动的主动消息冲动 — wechat_bridge.js 轮询此字段决定是否发送主动消息
+    impulseToMessage: {
+      triggered: false,
+      reason: null,           // 触发原因描述，如 "在图书馆门口看到一只橘猫"
+      intensity: null,        // "high" | "medium" | "low"
+      whatToSay: null,        // 她想说的话的大意
+      timestamp: null         // 触发时间 ISO
+    },
     // 以下为元数据，不输出到状态文件
     _tickCount: 0
   };
@@ -897,44 +1030,47 @@ function tick(state, now) {
   // 6. 应用自然衰减（长时间未交互的影响）
   applyNaturalDecay(state);
 
-  // 7. 随机事件抽选
+  // 7. 重置主动消息冲动（本 tick 的事件将重新设置）
+  state.impulseToMessage = { triggered: false, reason: null, intensity: null, whatToSay: null, timestamp: null };
+
+  // 8. 随机事件抽选
   rollRandomEvents(state);
 
-  // 8. 确保状态一致性
+  // 9. 确保状态一致性
   ensureConsistency(state);
 
-  // 9. 计算最终的 wantToTalk
+  // 10. 计算最终的 wantToTalk
   calculateWantToTalk(state, period);
 
-  // 10. 处理未读消息的衰减
+  // 11. 处理未读消息的衰减
   decayUnread(state);
 
-  // 11. 生成默认想法
+  // 12. 生成默认想法
   if (!state.thinkingAbout) {
     state.thinkingAbout = generateDefaultThought(state);
   }
 
-  // 11.5 环境情绪注入（~10% 概率）——跟 GSQ 无关的日常
+  // 12.5 环境情绪注入（~10% 概率）——跟 GSQ 无关的日常
   if (Math.random() < 0.10) {
     state.thinkingAbout = generateEnvironmentalThought(state);
   }
 
-  // 11.6 情感张力注入（~5% 概率）——没说破的东西偶尔冒出来
+  // 12.6 情感张力注入（~5% 概率）——没说破的东西偶尔冒出来
   if (Math.random() < 0.05) {
     state.thinkingAbout = generateEmotionalTensionThought(state);
   }
 
-  // 12. 社交电池自然恢复
+  // 13. 社交电池自然恢复
   if (state.socialBattery < 10) {
     state.socialBattery = Math.min(10, +(state.socialBattery + 0.02).toFixed(2));
   }
 
-  // 13. 睡觉时清空 thinkingAbout
+  // 14. 睡觉时清空 thinkingAbout
   if (state.activity === "睡觉") {
     state.thinkingAbout = null;
   }
 
-  // 14. 数字精度修复
+  // 15. 数字精度修复
   state.moodValue = +state.moodValue.toFixed(2);
   state.socialBattery = +state.socialBattery.toFixed(2);
 
@@ -1686,6 +1822,60 @@ export function generateProactivePrompt(state, targetName) {
 - 不要用 --- 分隔符，就发一条
 - 用你的自然语气
 - 不要和最近聊天记录重复`;
+}
+
+/**
+ * 生成事件驱动的主动消息提示词——基于 impulseToMessage + 当前状态。
+ * 与 generateProactivePrompt 不同，这个函数使用事件的具体原因和意图，
+ * 让 AI 生成的主动消息跟她生活中刚刚发生的事情一致。
+ *
+ * @param {object} state - 完整状态对象（包含 impulseToMessage）
+ * @param {string} targetName - 目标用户名
+ * @returns {string} 主动消息的 system prompt
+ */
+export function generateImpulsePrompt(state, targetName) {
+  const impulse = state.impulseToMessage;
+  if (!impulse || !impulse.triggered) return null;
+
+  const reason = impulse.reason || "发生了一件事";
+  const whatToSay = impulse.whatToSay || "想跟你说个事";
+  const intensity = impulse.intensity || "medium";
+
+  // 当前状态的一句描述，帮助 AI 保持语气一致
+  let stateLine = "";
+  if (state.moodValue >= 8) {
+    stateLine = "你现在心情很好，说话会比较轻快。";
+  } else if (state.moodValue <= 3) {
+    stateLine = "你现在心情不太好，说话会比较冲或者很短。";
+  } else if (state.activity === "失眠翻来覆去") {
+    stateLine = "你失眠了，脑子半睡半醒，说话会比较碎。";
+  } else if (state.gaming && state.gaming.playing) {
+    stateLine = "你正在打瓦，一边打一边发消息。";
+  } else if (state.socialBattery <= 3) {
+    stateLine = "你今天社交能量用完了，话很短。";
+  }
+
+  // 根据 intensity 调整语气
+  let intensityHint = "";
+  if (intensity === "high") {
+    intensityHint = "你特别想说这件事，不用铺垫，直接说。";
+  } else if (intensity === "low") {
+    intensityHint = "你不太确定要不要说，可能会说一半又撤回或者突然不想说了。";
+  }
+
+  return `你现在想主动找 ${targetName} 说话。
+
+**你为什么找他：** ${reason}
+**你想说的：** ${whatToSay}
+${stateLine ? `**你现在的状态：** ${stateLine}` : ""}${intensityHint ? `**说话冲动程度：** ${intensityHint}` : ""}
+
+规则：
+- 1-3句，极短，发微信不是写小作文
+- 不要打招呼（不说"在吗""hi"之类）
+- 不要用 --- 分隔符，就发一条
+- 用你的自然语气，跟你平时的风格一致
+- 不要和最近聊天记录重复
+- 你的话跟你现在的心情和状态一致`;
 }
 
 /**
