@@ -69,36 +69,85 @@ The vcxproj compiles exactly one source file. To change which program builds:
 ### 交流约定
 - **始终使用中文回复**，无论是对话、代码注释还是文档说明。
 
-### Agent Teams（智能团队模式）— 默认开启
+### Agent 三层架构
 
-**核心规则**：收到任务后自动拆分为无依赖子任务，分配独立 Agent 并行执行，全部完成后汇总合并。
+所有任务按职责自动分发到三层 Agent 体系，层级之间各司其职、并行优先。
 
-#### 拆分原则
-1. 识别任务中的独立维度（文件搜索 vs 服务器检查 vs 代码审计 vs 版本控制）
-2. 每个维度一个 Agent，同时启动
-3. 读操作（搜索/检查/审计）永不阻塞彼此
-4. 写操作在所有相关读操作完成后执行
-5. 汇总结果时去重、合并、优先级排序
-
-#### 模型选择
-- **Haiku** (`model: "haiku"`)：简单搜索、单文件读取、日志查看、git status、状态检查
-- **Sonnet** (`model: "sonnet"`)：代码分析、安全审计、复杂逻辑、代码生成、重构
-- **默认** (不设 model)：通用任务、文件编辑、SSH 操作
-
-#### 典型并行组合
 ```
-用户请求 → 自动拆分 →
-  ├─ Agent(搜索代码, haiku)     ← 轻量搜索
-  ├─ Agent(安全审计, sonnet)    ← 复杂分析
-  ├─ Agent(服务器诊断, haiku)   ← 日志状态
-  └─ Agent(git 操作)           ← 版本控制
-→ 汇总 → 执行写操作 → 验证
+用户请求
+  │
+  ├─ Tier 1: 本地执行层 ─────────────────────┐
+  │  多 Agent 并行：文件搜索、代码编辑、git 操作   │  并行
+  │  模型：读操作用 Haiku，分析/编辑用 Sonnet     │
+  │                                              ├─── Tier 1 + Tier 2 可同时跑
+  ├─ Tier 2: 信息搜索层 ─────────────────────┘
+  │  单专用 Agent：Web Search Agent（Haiku）
+  │  职责：搜索文档、API 参考、Skill/插件、
+  │        npm 包、技术方案
+  │  规则：Tier 1 Agent 遇到不确定的 API/库/配置，
+  │        禁止猜测，必须委托 Web Agent 搜索后再行动
+  │
+  └─ Tier 3: 服务器执行层（独立，不阻塞本地）
+     server-agent.js（日本服务器），通过 SSH 调用
+     职责：服务管理（nginx/pm2/systemd）、日志检查、
+           代码部署（git pull/build/restart）
+     模型：默认
 ```
 
-#### 示例
-- "检查服务器状态并推送代码" → `Agent(SSH诊断, haiku)` + `Agent(git push)` 并行
-- "审计 API key 泄露并修复" → `Agent(搜索泄露点, haiku)` + `Agent(检查git历史, sonnet)` 并行，汇总后统一修复
-- "重构某个模块" → `Agent(分析现有代码, sonnet)` → `Agent(生成新代码, sonnet)` → `Agent(审查差异, sonnet)`
+#### 层级规则
+
+| 层级 | 并行 | 模型 | 职责 |
+|------|------|------|------|
+| Tier 1 本地执行 | 多个 Agent 并行 | Haiku（读）/ Sonnet（分析+写） | 文件搜索、代码编辑、git 操作、构建 |
+| Tier 2 信息搜索 | 与 Tier 1 并行 | Haiku（轻量搜索） | Web 搜索文档、API、包、方案 |
+| Tier 3 服务器 | 独立，不阻塞本地 | 默认 | SSH 管理服务器、部署、日志 |
+
+#### 核心约束
+
+1. **写前必查**：任何写操作（代码编辑、git push、部署）前，必须先完成相关搜索
+   - 写代码前 → Tier 2 搜文档/API 确认方案
+   - 部署前 → Tier 3 查服务器状态确认可部署
+2. **不猜原则**：Tier 1 Agent 遇到不确定的 API、库用法、配置项时，禁止自行推测，必须委托 Tier 2 Web Agent 搜索确认
+3. **Tier 3 不阻塞本地**：服务器操作完全独立运行，Tier 1/2 不需要等待 Tier 3
+4. **Tier 1 + Tier 2 可并行**：两个层级同时启动，搜索结果返回后 Tier 1 继续执行
+
+#### 典型流程
+
+```
+"给项目加一个 Redis 缓存层"
+  │
+  ├─ Tier 2: Web Agent(Haiku)
+  │   → 搜索 C++ Redis 客户端库（hiredis/cpp_redis）
+  │   → 搜索 Redis 连接池最佳实践
+  │   → 返回推荐方案 + API 文档链接
+  │
+  ├─ Tier 1: 代码分析 Agent(Sonnet) ── 收到 Tier 2 结果后 ──→
+  │   → 分析现有代码，设计缓存插入点
+  │
+  ├─ Tier 1: 文件搜索 Agent(Haiku) ── 并行 ──→
+  │   → 搜索项目中所有适合加缓存的热点路径
+  │
+  └─ Tier 3: 服务器 Agent
+      → SSH 检查 Redis 是否已安装运行
+      → 确认后可部署
+```
+
+```
+"重构 hash_table.h 并部署到服务器"
+  │
+  ├─ Tier 2: Web Agent(Haiku)
+  │   → 搜索 C++20 哈希表最新特性（std::flat_hash_map 等）
+  │   → 搜索开链哈希 vs 开放寻址的取舍
+  │
+  ├─ Tier 1: 代码审计 Agent(Sonnet) ── 收到 Tier 2 结果后 ──→
+  │   → 审查 hash_table.h，生成重构方案
+  │
+  ├─ Tier 1: 编辑 Agent(Sonnet) ── 收到方案后 ──→
+  │   → 执行代码修改
+  │
+  └─ Tier 3: 服务器 Agent ── 编辑完成后 ──→
+      → SSH 检查服务器状态 → git pull → build → restart
+```
 
 ### Key Conventions
 - Header-only implementation: `bitree.h`, `linklist.h`, and `hash_table.h` contain full function definitions.
