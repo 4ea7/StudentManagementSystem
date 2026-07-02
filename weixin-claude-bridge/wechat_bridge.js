@@ -12,6 +12,25 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// xaj 人生模拟引擎 — 延迟加载，避免缺失时阻断 bridge 启动
+let _xajGenerateStateDesc = null;
+let _xajGenerateProactivePrompt = null;
+
+async function ensureXajImports() {
+  if (_xajGenerateStateDesc) return;
+  try {
+    const mod = await import("./xaj_life.js");
+    _xajGenerateStateDesc = mod.generateStateDescription;
+    _xajGenerateProactivePrompt = mod.generateProactivePrompt;
+    log("✅", "xaj_life.js 已加载");
+  } catch (e) {
+    log("⚠️", `xaj_life.js 加载失败: ${e.message}，将跳过人生状态注入`);
+    // 设置空函数避免后续 null 调用
+    _xajGenerateStateDesc = () => null;
+    _xajGenerateProactivePrompt = () => null;
+  }
+}
+
 // ── 加载 .env 文件（简单解析，不依赖第三方库）──
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const envPaths = [path.join(scriptDir, ".env"), path.join(process.cwd(), ".env")];
@@ -55,6 +74,7 @@ const VISION_API_BASE_URL = process.env.VISION_API_BASE_URL || API_BASE_URL;
 const SYNC_FILE = path.join(scriptDir, "wechat_sync.json");
 const CORRECTIONS_FILE = path.join(scriptDir, "corrections.txt");
 const STICKERS_FILE = path.join(scriptDir, "stickers.json");
+const XAJ_STATE_FILE = path.join(scriptDir, "xaj_state.json");
 
 // ── 主动消息配置 ──
 const PROACTIVE_ENABLED = process.env.PROACTIVE_ENABLED === "true";
@@ -109,6 +129,31 @@ function getStickerList() {
   return entries.map(([md5, info], i) => `${i + 1}. ${md5.slice(0, 6)}… (使用${info.count}次)`).join("\n");
 }
 
+// ── xaj 人生模拟引擎集成 ──
+function loadXajState() {
+  try {
+    if (fs.existsSync(XAJ_STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(XAJ_STATE_FILE, "utf-8"));
+    }
+  } catch (e) {
+    log("⚠️", `xaj_state.json 读取失败: ${e.message}`);
+  }
+  return null;
+}
+
+function updateXajInteraction() {
+  // 收到 GSQ 的消息时更新 lastInteraction 和重置 unreadMessages
+  try {
+    const state = loadXajState();
+    if (!state) return;
+    state.lastInteraction = new Date().toISOString();
+    state.unreadMessages = 0; // 看到了就清零
+    fs.writeFileSync(XAJ_STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (e) {
+    // 静默失败，不影响主流程
+  }
+}
+
 // 发一条表情
 async function sendSticker(md5, to) {
   try {
@@ -125,6 +170,14 @@ function loadSystemPrompt() {
   if (SYSTEM_PROMPT_FILE && fs.existsSync(SYSTEM_PROMPT_FILE)) {
     base = fs.readFileSync(SYSTEM_PROMPT_FILE, "utf-8");
   }
+
+  // 注入 xaj 实时状态（人生模拟引擎）
+  const xajState = loadXajState();
+  if (xajState && _xajGenerateStateDesc) {
+    const stateDesc = _xajGenerateStateDesc(xajState);
+    if (stateDesc) base = stateDesc + "\n\n" + base;
+  }
+
   // 拼接表情库（如果 AI 想发表情，用 [sticker:N] 格式）
   const stickerList = getStickerList();
   if (stickerList) {
@@ -190,6 +243,9 @@ if (PROACTIVE_ENABLED && PROACTIVE_TARGET) {
   console.log(`     间隔 ${PROACTIVE_MIN}~${PROACTIVE_MAX} 分钟 | 免打扰 ${QUIET_START}:00~${QUIET_END}:00`);
 }
 console.log("");
+
+// 预加载 xaj 人生模拟引擎
+ensureXajImports();
 
 // 尝试恢复登录
 let bot;
@@ -366,23 +422,36 @@ async function sendProactive() {
       ? `\n\n最近聊天（参考，别复读）：\n${recentHistory.map(m => `[${m.role === "user" ? PROACTIVE_TARGET : "你"}]: ${typeof m.content === "string" ? m.content.slice(0, 80) : "[非文字]"}`).join("\n")}`
       : "";
 
-    // 随机选一种发起方式，避免每次都一样
-    const moods = [
-      "你刚看到一个东西/发生了一件小事，想跟他分享。直接说事，不要铺垫。",
-      "你想起之前他说过的一句话/答应你的一件事，追问一下。",
-      "你突然想到他就找他。不要问在干嘛，直接说你想说的。",
-      "你有点无聊，想看他猫。直接要。",
-      "你在打游戏/看视频/刷到有意思的东西，发给他看。",
-    ];
-    const mood = moods[Math.floor(Math.random() * moods.length)];
-
-    const proactivePrompt = `你现在想主动找 ${PROACTIVE_TARGET} 聊天。${mood}
+    // 使用 xaj 人生模拟引擎生成状态感知的主动消息提示词
+    let proactivePrompt;
+    const xajState = loadXajState();
+    if (xajState && _xajGenerateProactivePrompt) {
+      // 补充内部字段供 generateProactivePrompt 使用
+      if (xajState.lastInteraction) {
+        const last = new Date(xajState.lastInteraction);
+        xajState._hoursSinceInteraction = (Date.now() - last) / (1000 * 60 * 60);
+      } else {
+        xajState._hoursSinceInteraction = null;
+      }
+      proactivePrompt = _xajGenerateProactivePrompt(xajState, PROACTIVE_TARGET);
+    } else {
+      // 回退：随机选一种发起方式，避免每次都一样
+      const moods = [
+        "你刚看到一个东西/发生了一件小事，想跟他分享。直接说事，不要铺垫。",
+        "你想起之前他说过的一句话/答应你的一件事，追问一下。",
+        "你突然想到他就找他。不要问在干嘛，直接说你想说的。",
+        "你有点无聊，想看他猫。直接要。",
+        "你在打游戏/看视频/刷到有意思的东西，发给他看。",
+      ];
+      const mood = moods[Math.floor(Math.random() * moods.length)];
+      proactivePrompt = `你现在想主动找 ${PROACTIVE_TARGET} 聊天。${mood}
 规则：
 - 1-3句，极短，发微信不是写小作文
 - 不要打招呼（不说"在吗""hi"之类）
 - 不要用 --- 分隔符，就发一条
 - 用你的自然语气
 - 不要和最近聊天记录重复${contextStr}`;
+    }
 
     const reply = await callAI(proactivePrompt, prompt, []);
     const text = reply.replace(/---.*/s, "").trim();
@@ -470,6 +539,11 @@ bot.on("message", async (msg) => {
 
     // 重置主动消息的冷却计时
     lastInteractionTime = Date.now();
+
+    // 如果是目标用户，更新 xaj 人生引擎的交互时间
+    if (displayName === PROACTIVE_TARGET) {
+      updateXajInteraction();
+    }
 
     if (!sessions.has(from)) sessions.set(from, []);
     const history = sessions.get(from);
