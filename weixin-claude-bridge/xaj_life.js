@@ -26,6 +26,48 @@ const STATE_FILE = path.join(scriptDir, "xaj_state.json");
 const MEMORY_FILE = path.join(scriptDir, "xaj_memory.json");
 
 // ═══════════════════════════════════════════════════════════════
+// 加载 .env 配置（API 相关）
+// ═══════════════════════════════════════════════════════════════
+
+/** 手动读取 .env 文件，不依赖 dotenv 包 */
+function loadEnvForAI() {
+  const envPath = path.join(scriptDir, ".env");
+  if (!fs.existsSync(envPath)) {
+    console.log("[xaj_life] 未找到 .env 文件，AI 生活事件生成器将禁用。");
+    return;
+  }
+  for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const idx = trimmed.indexOf("=");
+    if (idx > 0) {
+      const key = trimmed.slice(0, idx).trim();
+      const val = trimmed.slice(idx + 1).trim();
+      if (!process.env[key]) process.env[key] = val;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI 生活事件生成器配置
+// ═══════════════════════════════════════════════════════════════
+
+/** AI 事件最小间隔（毫秒），默认 10 分钟，加 ±5 分钟随机抖动避免机械感 */
+const AI_EVENT_INTERVAL = 600_000;
+/** 每小时最多调用几次 AI，防止 API 费用失控 */
+const AI_EVENT_MAX_PER_HOUR = 6;
+/** 是否启用 AI 事件生成器，可通过环境变量 AI_EVENT_ENABLED 控制 */
+const AI_EVENT_ENABLED = process.env.AI_EVENT_ENABLED !== "false";
+
+/** 从环境变量读取 API 配置 */
+function getAIConfig() {
+  const apiKey = process.env.API_KEY;
+  const apiBaseUrl = process.env.API_BASE_URL || "https://api.deepseek.com";
+  const apiModel = process.env.API_MODEL || "deepseek-chat";
+  return { apiKey, apiBaseUrl, apiModel };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 时间段定义 — 驱动她的日常节奏
 // ═══════════════════════════════════════════════════════════════
 
@@ -737,6 +779,22 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * 记录事件到 recentEvents，保留最近 5 条。
+ * 所有事件（硬编码和 AI 生成的）都应通过此函数记录，
+ * 以便 AI 事件生成器有足够的上下文。
+ * @param {object} state - 当前状态
+ * @param {string} description - 事件的简短描述
+ */
+function recordEvent(state, description) {
+  if (!description) return;
+  state.recentEvents.push(description);
+  // 只保留最近 5 条
+  if (state.recentEvents.length > 5) {
+    state.recentEvents = state.recentEvents.slice(-5);
+  }
+}
+
 /** 范围随机整数 [min, max] */
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -956,6 +1014,10 @@ function normalizeState(state) {
   if (!state.impulseToMessage || typeof state.impulseToMessage !== "object") {
     state.impulseToMessage = { triggered: false, reason: null, intensity: null, whatToSay: null, timestamp: null };
   }
+  // 确保 recentEvents 是数组
+  if (!Array.isArray(state.recentEvents)) {
+    state.recentEvents = [];
+  }
   return state;
 }
 
@@ -988,6 +1050,8 @@ function createInitialState() {
       whatToSay: null,        // 她想说的话的大意
       timestamp: null         // 触发时间 ISO
     },
+    // 最近发生的事（最多保留 5 条），供 AI 事件生成器参考
+    recentEvents: [],
     // 以下为元数据，不输出到状态文件
     _tickCount: 0
   };
@@ -997,7 +1061,7 @@ function createInitialState() {
 // 核心：状态更新逻辑（每分钟执行一次）
 // ═══════════════════════════════════════════════════════════════
 
-function tick(state, now) {
+async function tick(state, now) {
   // 1. 解析当前时间（北京时间）
   const date = now || new Date();
   const cn = getChinaTime(date);
@@ -1035,6 +1099,9 @@ function tick(state, now) {
 
   // 8. 随机事件抽选
   rollRandomEvents(state);
+
+  // 8.5 AI 生活事件生成器（与硬编码事件共存，增加细腻度）
+  await rollAIEvent(state);
 
   // 9. 确保状态一致性
   ensureConsistency(state);
@@ -1264,7 +1331,183 @@ function rollRandomEvents(state) {
 
     // 触发！
     event.apply(state);
+    // 记录到最近事件列表，供 AI 事件生成器提供上下文
+    recordEvent(state, event.description);
     eventsTriggered++;
+  }
+}
+
+/**
+ * AI 生活事件抽选——检查间隔和频率限制后，调用 DeepSeek API 生成自然事件。
+ * 与硬编码事件共存，AI 事件更"细腻"，比如"在食堂排队被人插队"这种难以穷举的日常。
+ * @param {object} state - 当前状态
+ */
+async function rollAIEvent(state) {
+  // 检查环境变量开关
+  if (!AI_EVENT_ENABLED) return;
+
+  const now = (state._date || new Date()).getTime();
+  const lastAIEvent = state._lastAIEventTime || 0;
+
+  // 随机抖动 ±5 分钟，避免固定间隔的机械感
+  const jitter = randInt(-300_000, 300_000);
+  const effectiveInterval = Math.max(60_000, AI_EVENT_INTERVAL + jitter);
+
+  if (now - lastAIEvent < effectiveInterval) return;
+
+  // 调用 AI 事件生成器（异步，失败静默）
+  await aiLifeEvent(state);
+}
+
+/**
+ * AI 生活事件生成器——通过 DeepSeek API 生成自然的生活事件。
+ *
+ * 发送一个简洁的 prompt（~300 token），让 AI 以奚艾佳的身份
+ * 生成一句自然的生活描述，代替穷举所有可能的生活事件。
+ *
+ * 成功后直接修改 state（活动、位置、心情、想法、impulse）。
+ * 失败静默，不影响主循环和硬编码事件。
+ *
+ * @param {object} state - 当前状态
+ */
+async function aiLifeEvent(state) {
+  // 检查 API 密钥
+  const { apiKey, apiBaseUrl, apiModel } = getAIConfig();
+  if (!apiKey) return;
+
+  // 频率控制：每小时最多 AI_EVENT_MAX_PER_HOUR 次
+  const currentHour = state._hour;
+  if (state._aiEventHour !== currentHour) {
+    state._aiEventHour = currentHour;
+    state._aiEventsThisHour = 0;
+  }
+  if ((state._aiEventsThisHour || 0) >= AI_EVENT_MAX_PER_HOUR) return;
+
+  // ── 构建 prompt ──
+  const timeStr = `${String(state._hour).padStart(2, "0")}:${String(state._minute).padStart(2, "0")}`;
+
+  // 最近事件文本
+  const recentEventsText = state.recentEvents && state.recentEvents.length > 0
+    ? state.recentEvents.slice(-5).join("；")
+    : "无";
+
+  // 跟 GSQ 的交互状态
+  let lastInteractionText = "还没说过话";
+  if (state.lastInteraction && state._hoursSinceInteraction !== null) {
+    const hoursSince = state._hoursSinceInteraction;
+    if (hoursSince < 1) lastInteractionText = `${Math.round(hoursSince * 60)}分钟前刚聊过`;
+    else if (hoursSince < 24) lastInteractionText = `${Math.round(hoursSince)}小时前聊过`;
+    else lastInteractionText = `${Math.round(hoursSince / 24)}天前聊过`;
+  }
+
+  // 最近一条记忆
+  let recentMemoryText = "无";
+  if (state._memories && state._memories.length > 0) {
+    const mem = state._memories[state._memories.length - 1];
+    recentMemoryText = (mem.content || "无").slice(0, 80);
+  }
+
+  const prompt = `你是奚艾佳，中侨职业技术大学的学生，在上海金山。
+
+现在的时间：${timeStr}，${state.dayOfWeek}
+你正在：${state.location}，${state.activity}
+你的心情：${state.mood}(${state.moodValue}/10)
+最近发生的事：${recentEventsText}
+你跟GSQ的关系状态：${lastInteractionText}，他说过：${recentMemoryText}
+
+用一句话描述现在你的生活中正在发生什么。不要离谱。要像一个普通女大学生真实的一天。
+然后输出 JSON：
+{"event": "简短的事件描述", "activity": "你现在的活动", "location": "你在哪", "moodDelta": -1到2的整数, "thinkingAbout": "你脑子里在想什么", "impulse": "你想跟GSQ说的话（如果没有想说的就留空）"}`;
+
+  // ── 调用 API ──
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    const resp = await fetch(`${apiBaseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: apiModel,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.9,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[xaj_life] AI 事件 API 错误 ${resp.status}: ${errText.slice(0, 200)}`);
+      return;
+    }
+
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // ── 解析 JSON 响应 ──
+    let parsed;
+    try {
+      // 提取 JSON（可能被 markdown 代码块包裹）
+      let jsonStr = content.trim();
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) jsonStr = jsonMatch[0];
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error(`[xaj_life] AI 事件 JSON 解析失败: ${parseErr.message}，原始响应: ${content.slice(0, 200)}`);
+      return;
+    }
+
+    // ── 应用 AI 生成的事件到状态 ──
+    if (parsed.event) {
+      recordEvent(state, parsed.event);
+      console.log(`[xaj_life] AI 事件: ${parsed.event}`);
+    }
+
+    // 更新活动
+    if (parsed.activity && typeof parsed.activity === "string") {
+      state.activity = parsed.activity;
+    }
+
+    // 更新位置
+    if (parsed.location && typeof parsed.location === "string") {
+      state.location = parsed.location;
+    }
+
+    // 更新心情（限制波动范围）
+    if (typeof parsed.moodDelta === "number") {
+      const delta = Math.max(-1, Math.min(2, Math.round(parsed.moodDelta)));
+      state.moodValue = Math.max(1, Math.min(10, state.moodValue + delta));
+      state.mood = resolveMoodLabel(state.moodValue);
+    }
+
+    // 更新想法
+    if (parsed.thinkingAbout && typeof parsed.thinkingAbout === "string") {
+      state.thinkingAbout = parsed.thinkingAbout;
+    }
+
+    // 如果 AI 生成了想对 GSQ 说的话 → 设置主动消息冲动
+    if (parsed.impulse && typeof parsed.impulse === "string" && parsed.impulse.trim()) {
+      const intensity = state.moodValue >= 8 ? "high" : state.moodValue >= 5 ? "medium" : "low";
+      setImpulse(state, parsed.event || parsed.impulse, intensity, parsed.impulse.trim());
+    }
+
+    // 更新频率计数器
+    state._aiEventsThisHour = (state._aiEventsThisHour || 0) + 1;
+    state._lastAIEventTime = (state._date || new Date()).getTime();
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.error("[xaj_life] AI 事件 API 请求超时（10秒）");
+    } else {
+      console.error(`[xaj_life] AI 事件生成失败: ${err.message}`);
+    }
+    // 静默失败，不影响主循环和硬编码事件
   }
 }
 
@@ -1900,24 +2143,35 @@ function formatTime(isoString) {
 let state = null;
 let intervalId = null;
 
-function runOnce() {
+async function runOnce() {
   const now = new Date();
   if (!state) state = loadState();
-  tick(state, now);
+  await tick(state, now);
   saveState(state);
   return state;
 }
 
 function startLoop(intervalMs = 60_000) {
+  // 加载 .env 配置（AI 事件生成器依赖）
+  loadEnvForAI();
+
   console.log("[xaj_life] 奚艾佳人生模拟引擎启动");
   console.log(`[xaj_life] 更新间隔: ${intervalMs / 1000}秒`);
   console.log(`[xaj_life] 状态文件: ${STATE_FILE}`);
   console.log(`[xaj_life] 记忆文件: ${MEMORY_FILE}`);
+  if (!AI_EVENT_ENABLED) {
+    console.log("[xaj_life] AI 生活事件生成器: 已禁用（AI_EVENT_ENABLED=false）");
+  } else if (!process.env.API_KEY) {
+    console.log("[xaj_life] AI 生活事件生成器: 未配置 API_KEY，跳过");
+  } else {
+    console.log("[xaj_life] AI 生活事件生成器: 已启用（间隔约10分钟）");
+  }
 
   // 首次立即更新
   state = loadState();
-  runOnce();
-  console.log(`[xaj_life] 初始状态: ${state.activity} @ ${state.location} | 心情 ${state.mood}(${state.moodValue}) | ${state.wantToTalk ? "想" : "不想"}聊天`);
+  runOnce().then(() => {
+    console.log(`[xaj_life] 初始状态: ${state.activity} @ ${state.location} | 心情 ${state.mood}(${state.moodValue}) | ${state.wantToTalk ? "想" : "不想"}聊天`);
+  });
 
   // 每分钟更新一次
   intervalId = setInterval(() => {
@@ -1962,16 +2216,18 @@ if (isMainModule()) {
 function main(args) {
 if (args.includes("--once") || args.includes("-1")) {
   // 单次模式
-  const result = runOnce();
-  const publicState = {};
-  for (const key of Object.keys(result)) {
-    if (!key.startsWith("_")) publicState[key] = result[key];
-  }
-  console.log(JSON.stringify(publicState, null, 2));
-  // 同时输出自然语言描述
-  console.log("\n--- 自然语言描述 ---");
-  console.log(generateStateDescription(result));
-  process.exit(0);
+  loadEnvForAI();
+  const result = runOnce().then(result => {
+    const publicState = {};
+    for (const key of Object.keys(result)) {
+      if (!key.startsWith("_")) publicState[key] = result[key];
+    }
+    console.log(JSON.stringify(publicState, null, 2));
+    // 同时输出自然语言描述
+    console.log("\n--- 自然语言描述 ---");
+    console.log(generateStateDescription(result));
+    process.exit(0);
+  });
 } else if (args.includes("--show") || args.includes("-s")) {
   // 显示当前状态
   const current = loadState();
