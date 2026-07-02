@@ -199,8 +199,9 @@ const RANDOM_EVENTS = [
       s.location = "在家";
       s.thinkingAbout = pickRandom([
         "排一把，这把必赢",
-        "今天手感还行，试试",
-        "打一把再睡"
+        "今天手感还行，试试看",
+        "就打一把，打完就睡",
+        "上线看看有没有人在"
       ]);
     },
     description: "开始打瓦"
@@ -214,9 +215,15 @@ const RANDOM_EVENTS = [
       s.activity = pickRandom(["刷手机", "看视频", "躺着"]);
       if (s.gaming.streak > 0) {
         s.moodValue = Math.min(10, s.moodValue + 1);
-        s.thinkingAbout = "今天瓦打得不错，收工";
+        s.thinkingAbout = pickRandom([
+          "今天打得不错，收工",
+          "最后一局赢了，完美收官"
+        ]);
       } else if (s.gaming.streak < 0) {
-        s.thinkingAbout = "不打了不打了，今天没手感";
+        s.thinkingAbout = pickRandom([
+          "不打了不打了，今天没手感",
+          "再打下去要掉段了，溜了"
+        ]);
       }
     },
     description: "打完收工"
@@ -231,7 +238,11 @@ const RANDOM_EVENTS = [
       s.physical.push("长痘中");
       s.moodValue = Math.max(1, s.moodValue - 1);
       s.mood = resolveMoodLabel(s.moodValue);
-      s.thinkingAbout = "怎么又长痘了，烦";
+      s.thinkingAbout = pickRandom([
+        "照镜子发现一颗新的，又是额头。烦。",
+        "又长痘了，挤也不是不挤也不是",
+        "明天还要见人，这痘长得真是时候"
+      ]);
     },
     description: "长了一颗痘"
   },
@@ -245,7 +256,11 @@ const RANDOM_EVENTS = [
       s.mood = resolveMoodLabel(s.moodValue);
       s.wantToTalk = s.moodValue >= 4;
       s.wantToTalkReason = s.wantToTalk ? "头疼但想被关心" : "头疼不想说话";
-      s.thinkingAbout = "头好痛，想躺着";
+      s.thinkingAbout = pickRandom([
+        "头一跳一跳地疼，想躺着什么都不想",
+        "太阳穴好胀，是不是昨晚睡太晚了",
+        "头好痛，想关机"
+      ]);
     },
     description: "头疼"
   },
@@ -255,7 +270,10 @@ const RANDOM_EVENTS = [
     condition: (s) => s.physical.includes("长痘中"),
     apply(s) {
       s.physical = s.physical.filter(p => p !== "长痘中");
-      s.thinkingAbout = "痘终于消了";
+      s.thinkingAbout = pickRandom([
+        "摸了一下脸，那颗痘终于平了",
+        "痘痘消了，心情都好了"
+      ]);
     },
     description: "痘痘消了"
   },
@@ -267,7 +285,10 @@ const RANDOM_EVENTS = [
       s.physical = s.physical.filter(p => p !== "轻微头疼");
       s.moodValue = Math.min(10, s.moodValue + 1);
       s.mood = resolveMoodLabel(s.moodValue);
-      s.thinkingAbout = "头不疼了，舒服";
+      s.thinkingAbout = pickRandom([
+        "头不疼了，整个人轻快了",
+        "头终于不疼了，舒服"
+      ]);
     },
     description: "头疼好了"
   },
@@ -333,9 +354,10 @@ const RANDOM_EVENTS = [
       s.wantToTalk = true;
       s.wantToTalkReason = "失眠了想找人聊天";
       s.thinkingAbout = pickRandom([
-        "怎么就是睡不着",
-        "他在干嘛呢",
-        "明天还要上课，烦"
+        "翻了个身，又翻了个身。怎么就是睡不着。",
+        "脑子里乱七八糟的，不知道在想什么",
+        "他在干嘛呢…算了不想了",
+        "明天还要上课，现在都几点了"
       ]);
     },
     description: "失眠了"
@@ -361,9 +383,9 @@ const RANDOM_EVENTS = [
       s.moodValue = Math.min(10, s.moodValue + 1);
       s.mood = resolveMoodLabel(s.moodValue);
       s.thinkingAbout = pickRandom([
-        "刷到一个好笑的视频想发给他",
-        "这个视频好抽象",
-        "笑死了分享给他"
+        "刷到一个好笑的，差点在课堂上笑出声",
+        "这个视频好抽象，想分享给他",
+        "笑死了，截图发给闺蜜了"
       ]);
       s.wantToTalk = s.moodValue >= 5;
       if (s.wantToTalk) s.wantToTalkReason = "刷到好笑的东西想分享";
@@ -378,8 +400,8 @@ const RANDOM_EVENTS = [
       s.moodValue = Math.max(1, s.moodValue - 2);
       s.mood = resolveMoodLabel(s.moodValue);
       s.thinkingAbout = pickRandom([
-        "刷到有点难过的东西",
-        "突然想到一些事"
+        "刷到一条有点难过的内容，不知道为什么看了好久",
+        "突然想到一些以前的事，说不上是什么感觉"
       ]);
       s.wantToTalk = s.moodValue >= 6;
       s.wantToTalkReason = s.wantToTalk ? "心情不好想要安慰" : "心情不好不想说话";
@@ -395,9 +417,10 @@ const RANDOM_EVENTS = [
     },
     apply(s) {
       s.thinkingAbout = pickRandom([
-        "好饿，想吃东西",
-        "不知道吃什么",
-        "想吃火锅"
+        "中午没吃饱，现在又不想下楼，翻翻外卖吧",
+        "好饿，但是不知道吃什么",
+        "想吃火锅，一个人又懒得去",
+        "肚子在叫，这节课怎么还没下课"
       ]);
       s.moodValue = Math.max(1, s.moodValue - 0.5);
       s.mood = resolveMoodLabel(s.moodValue);
@@ -528,9 +551,10 @@ const RANDOM_EVENTS = [
     condition: (s) => s.activity !== "睡觉" && s._hour >= 10 && s._hour < 22,
     apply(s) {
       s.thinkingAbout = pickRandom([
-        "想买衣服",
-        "看到一条裙子好好看",
-        "又要剁手了"
+        "想买衣服，上次看到的那件不知道还在不在",
+        "刷到一条裙子好好看，纠结要不要买",
+        "购物车又满了，但一个都不想删",
+        "又要剁手了…算了再看一眼"
       ]);
       s.moodValue = Math.min(10, s.moodValue + 0.5);
     },
@@ -542,10 +566,10 @@ const RANDOM_EVENTS = [
     condition: (s) => s.activity !== "睡觉" && s.moodValue >= 5,
     apply(s) {
       s.thinkingAbout = pickRandom([
-        "好想去海边",
-        "想去看雪",
-        "好想出去玩，不想上课了",
-        "想去日本"
+        "好想去海边，好久没看见海了",
+        "想去看雪，朋友圈有人发了雪景好好看",
+        "好想出去玩。课表排得这么满，烦。",
+        "想去日本，存的钱应该够了吧"
       ]);
       s.moodValue = Math.min(10, s.moodValue + 1);
       s.wantToTalk = true;
@@ -560,7 +584,11 @@ const RANDOM_EVENTS = [
     apply(s) {
       s.moodValue = Math.max(1, s.moodValue - 1);
       s.mood = resolveMoodLabel(s.moodValue);
-      s.thinkingAbout = "下雨了，不想出门";
+      s.thinkingAbout = pickRandom([
+        "窗外开始下雨了，本来想出去的，算了",
+        "下雨了，空气湿湿的，不想动",
+        "又下雨，晾的衣服又白洗了"
+      ]);
       if (s.location === "在外面") s.location = "在家";
     },
     description: "下雨了，心情变差"
@@ -636,6 +664,61 @@ function resolveMoodLabel(value) {
   if (value >= 2.5) return "烦躁";
   if (value >= 1.5) return "心情很差";
   return "烦死了";
+}
+
+/**
+ * 根据 moodValue 返回情绪质感——身体感受 + 行为倾向。
+ * 不是标签，是让 AI 能"感受"到她此刻状态的描述。
+ */
+function resolveMoodTexture(value) {
+  if (value >= 9) {
+    return pickRandom([
+      "脚步轻得想跳着走。看到好玩的就想发给他。想连发好几条。",
+      "整个人轻飘飘的，嘴角压不住。想逗他，想发[呲牙][呲牙][呲牙]。",
+      "嗨了，心情好到觉得世界都可爱。想拉他一起开心。"
+    ]);
+  }
+  if (value >= 7) {
+    return pickRandom([
+      "心情不错，脚步轻快。看到好玩的会想发给他。会多说几个字。",
+      "状态挺好，说话会带点笑意。他找你你会好好回。",
+      "今天还行，没那么容易烦。甚至想主动找他一下。"
+    ]);
+  }
+  if (value >= 5.5) {
+    return pickRandom([
+      "正常。该干嘛干嘛。他找你你会回，但不会特别主动。",
+      "不咸不淡的一天。没什么特别想说的，也没什么特别不想说的。",
+      "平平常常。手机响了会看一眼，是他的话就回一下。"
+    ]);
+  }
+  if (value >= 4.5) {
+    return pickRandom([
+      "说不上来哪里不对，就是提不起劲。回消息会有点敷衍。",
+      "有一点点烦，但还能忍。他找你你会回，不过话不多。",
+      "心里有点闷，想自己待着。不是针对谁。"
+    ]);
+  }
+  if (value >= 3.5) {
+    return pickRandom([
+      "有点烦。说不上来为什么。回消息会很短，可能就一个'嗯'。",
+      "不太想说话。不是生气，就是没那个心情。他发消息可能会已读不回。",
+      "心里堵堵的。想一个人待着，谁都不想理。"
+    ]);
+  }
+  if (value >= 2.5) {
+    return pickRandom([
+      "烦。看什么都不顺眼。消息都不想回。谁惹你跟谁急。",
+      "心情很差。如果有人这时候找你聊天你会想打人。",
+      "什么都不想干。胸口堵，话也不想说。最好谁都别来烦你。"
+    ]);
+  }
+  // 1-2.5
+  return pickRandom([
+    "什么都不想干。消息都不想回。胸口堵。就想躺着。",
+    "烦死了。别找。现在说话会很冲。",
+    "整个人down到谷底。不是生气，就是没力气。连敷衍都懒得敷衍。"
+  ]);
 }
 
 /** 获取北京时间（UTC+8）的 Date 对象中各字段 */
@@ -829,6 +912,16 @@ function tick(state, now) {
   // 11. 生成默认想法
   if (!state.thinkingAbout) {
     state.thinkingAbout = generateDefaultThought(state);
+  }
+
+  // 11.5 环境情绪注入（~10% 概率）——跟 GSQ 无关的日常
+  if (Math.random() < 0.10) {
+    state.thinkingAbout = generateEnvironmentalThought(state);
+  }
+
+  // 11.6 情感张力注入（~5% 概率）——没说破的东西偶尔冒出来
+  if (Math.random() < 0.05) {
+    state.thinkingAbout = generateEmotionalTensionThought(state);
   }
 
   // 12. 社交电池自然恢复
@@ -1185,28 +1278,167 @@ function generateDefaultThought(state) {
 
   const thoughts = [];
 
-  // 根据时间段
-  if (hour < 2) thoughts.push("明天还要早起", "睡不着", "再刷一会儿就睡");
-  if (hour >= 9 && hour < 12) thoughts.push("好困", "不想上课", "今天吃什么");
-  if (hour >= 12 && hour < 14) thoughts.push("吃饱了想睡", "下午干嘛呢");
-  if (hour >= 14 && hour < 18) thoughts.push("好无聊", "想出去玩", "不想写作业");
-  if (hour >= 18 && hour < 21) thoughts.push("晚上打两把", "晚饭吃啥");
-  if (hour >= 21 && hour < 24) thoughts.push("今天过得还行", "想打瓦");
-
-  // 根据状态
-  if (state.gaming.playing && state.gaming.recentResult) {
-    thoughts.push(state.gaming.recentResult);
+  // 时间段 → 自然思绪片段
+  if (hour < 2) {
+    thoughts.push(
+      "盯着天花板看了一会儿，也不知道自己在想什么",
+      "刷到一个视频，看完忘了讲什么",
+      "明明很困就是不想睡",
+      "明天第一节有课，但不想管了"
+    );
   }
-  if (state.physical.includes("长痘中")) thoughts.push("这痘什么时候消");
-  if (state.physical.includes("轻微头疼")) thoughts.push("头还是有点疼");
+  if (hour >= 7 && hour < 9) {
+    thoughts.push(
+      "闹钟响了三次才醒",
+      "不想起来，被窝里好暖和",
+      "今天穿什么好呢"
+    );
+  }
+  if (hour >= 9 && hour < 12) {
+    thoughts.push(
+      "老师讲到哪里了，没跟上",
+      "中午吃什么好呢",
+      "好困，昨晚不该熬夜的",
+      "这节课怎么还没下课"
+    );
+  }
+  if (hour >= 12 && hour < 14) {
+    thoughts.push(
+      "中午没吃饱，现在又不想下楼，翻翻外卖",
+      "吃饱了想睡觉",
+      "下午的课能不能不去"
+    );
+  }
+  if (hour >= 14 && hour < 18) {
+    thoughts.push(
+      "盯着窗外看了一会儿，树在晃",
+      "这个作业明天交，但不想写",
+      "好无聊啊，有没有什么好玩的",
+      "想出去走走但又懒得动"
+    );
+  }
+  if (hour >= 18 && hour < 21) {
+    thoughts.push(
+      "晚上打两把瓦",
+      "晚饭吃啥呢，不想再吃食堂了",
+      "今天好像什么都没干"
+    );
+  }
+  if (hour >= 21 && hour < 24) {
+    thoughts.push(
+      "今天过得还行",
+      "想打一把再睡",
+      "明天又是满课，烦"
+    );
+  }
+
+  // 状态相关的思绪
+  if (state.gaming.playing && state.gaming.streak > 2) {
+    thoughts.push("手感正热，这把还能赢");
+  }
+  if (state.gaming.playing && state.gaming.streak < -2) {
+    thoughts.push("队友到底会不会玩");
+  }
+  if (state.physical.includes("长痘中")) {
+    thoughts.push("这颗痘怎么还不消，烦死了");
+  }
+  if (state.physical.includes("轻微头疼")) {
+    thoughts.push("头有点疼，想躺着");
+  }
 
   if (thoughts.length === 0) return null;
   return pickRandom(thoughts);
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 环境情绪 & 情感张力 — 跟 GSQ 无关的日常 + 没说破的关系
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * 生成环境情绪——跟 GSQ 完全无关的日常烦恼和开心。
+ * 让她有"自己的生活"，不只是围绕一个人转。
+ */
+function generateEnvironmentalThought(state) {
+  const hour = state._hour;
+  const atHome = state.location === "在家" || state.location === "在家床上" || state.location === "在家睡觉";
+  const atSchool = state.location === "在学校";
+  const thoughts = [];
+
+  // 通用
+  thoughts.push(
+    "快递到了，是新买的那件衣服",
+    "手机快没电了，充电器又不在身边",
+    "突然想喝奶茶",
+    "看到一个好好笑的评论，截图了"
+  );
+
+  if (atHome) {
+    thoughts.push(
+      "室友在公放抖音，烦得要死",
+      "隔壁又在装修，吵死了",
+      "家里没零食了，该去买了",
+      "空调温度开太低了，有点冷"
+    );
+  }
+
+  if (atSchool) {
+    thoughts.push(
+      "老师今天点名了，还好你去了",
+      "旁边的人在吃零食，好香",
+      "黑板上写的什么根本看不清",
+      "后排有人在打游戏，你也想打"
+    );
+  }
+
+  return pickRandom(thoughts);
+}
+
+/**
+ * 生成情感张力——和 GSQ 关系里那些没说破的东西。
+ * 概率很低（~5%），偶尔冒出来一下就沉下去。
+ */
+function generateEmotionalTensionThought(state) {
+  const hoursSince = state._hoursSinceInteraction;
+  const thoughts = [];
+
+  if (hoursSince !== null && hoursSince <= 3) {
+    thoughts.push(
+      "他好像真的挺在乎我的",
+      "跟他聊天的时候其实挺开心的，虽然不想让他知道",
+      "他今天说话好像有点不一样"
+    );
+  } else if (hoursSince !== null && hoursSince <= 12) {
+    thoughts.push(
+      "他是不是也在等我先找他",
+      "算了不想了，想了也没用",
+      "其实也不是非他不可…吧"
+    );
+  } else if (hoursSince !== null && hoursSince > 12) {
+    thoughts.push(
+      "我今天是不是对他太凶了",
+      "他怎么还不找我…算了不想了",
+      "其实有点想他，但打死也不说"
+    );
+  } else {
+    thoughts.push(
+      "不知道他现在在干嘛",
+      "有时候觉得自己对他太凶了"
+    );
+  }
+
+  if (state.moodValue >= 7) {
+    thoughts.push(
+      "今天天气好好，要是他在就好了",
+      "想到他说的某句话，偷偷笑了一下"
+    );
+  }
+
+  return pickRandom(thoughts);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 生成给 wechat_bridge.js 用的自然语言状态描述
-// 要求：简短自然，不超过 3 行
+// 微小说体：2-4 句有画面感的描述，不罗列信息
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -1215,69 +1447,193 @@ function generateDefaultThought(state) {
  */
 export function generateStateDescription(state) {
   const lines = [];
+  const hour = state._hour ?? new Date().getHours();
+  const loc = state.location || "在家";
+  const act = state.activity || "待着";
+  const moodTexture = resolveMoodTexture(state.moodValue);
 
-  // 第一行：时刻 + 位置 + 活动 + 心情
-  const timeStr = formatTime(state.time);
-  let line1 = `[现在时刻: ${timeStr}] `;
-  // 避免"在在家"等重复：如果 location 已含"在"则不加
-  const loc = state.location || "未知";
-  if (loc.startsWith("在")) {
-    line1 += `你${loc}，${state.activity || "待着"}。`;
-  } else {
-    line1 += `你在${loc}，${state.activity || "待着"}。`;
-  }
-  if (state.mood) {
-    line1 += `心情${state.mood}。`;
-  }
-  lines.push(line1);
+  // ===== 第一行：场景画面（微小说体）=====
+  const sceneLine = buildSceneLine(state, hour, loc, act, moodTexture);
+  lines.push(sceneLine);
 
-  // 第二行：特殊情况（身体不适、打瓦结果、社交电池低等）
-  const extras = [];
-  if (state.physical && state.physical.length > 0) {
-    extras.push(state.physical.join("、"));
-  }
-  if (state.gaming && state.gaming.recentResult) {
-    extras.push(state.gaming.recentResult);
-  }
-  if (state.socialBattery <= 3) {
-    extras.push("你今天社交能量很低，不想多说话");
-  }
-  if (extras.length > 0) {
-    lines.push(extras.join("。") + "。");
-  }
+  // ===== 第二行（可选）：身体状况 / 打瓦 / 在想的事 =====
+  const detailLine = buildDetailLine(state);
+  if (detailLine) lines.push(detailLine);
 
-  // 第三行：在想的事情 + 对他的态度
-  const attitude = [];
-  if (state.thinkingAbout) {
-    attitude.push(`正在想：${state.thinkingAbout}`);
-  }
-  if (state.wantToTalk === false && state.wantToTalkReason && state.activity !== "睡觉") {
-    attitude.push(state.wantToTalkReason);
-  }
-  if (state.unreadMessages > 0) {
-    attitude.push(`他有${state.unreadMessages}条消息你没回`);
-  }
-  if (attitude.length > 0) {
-    lines.push(attitude.join("。") + "。");
-  }
+  // ===== 第三行：对他消息的态度 =====
+  const attitudeLine = buildAttitudeLine(state);
+  lines.push(attitudeLine);
 
-  // 最后一句：他发消息来了
+  // 最多 4 行
+  if (lines.length > 4) {
+    return lines.slice(0, 4).join("\n");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * 构建场景画面行——用有画面感的描述替代信息清单。
+ */
+function buildSceneLine(state, hour, loc, act, moodTexture) {
+  const locIn = loc.startsWith("在") ? loc : "在" + loc;
+
+  // 按时间段 + 活动类型选用不同的画面模板
+  let scene;
+
   if (state.activity === "睡觉") {
-    lines.push("他发消息来了，但你在睡觉，没看到。");
-  } else if (state.wantToTalk) {
-    lines.push("他发消息来了。");
+    if (hour >= 2 && hour < 7) {
+      scene = `凌晨${hour}点，你在${loc}，睡得很沉。`;
+    } else if (hour >= 7 && hour < 9) {
+      scene = `早上${hour}点，你还在${loc}，闹钟还没响。`;
+    } else {
+      scene = `你在${loc}，睡着了。`;
+    }
+  } else if (state.activity === "失眠翻来覆去") {
+    scene = pickRandom([
+      `凌晨${hour}点，你躺在${loc.includes("床") ? "床上" : loc}翻来覆去，怎么都睡不着。`,
+      `夜深了，你窝在${loc.includes("床") ? "床上" : loc}，眼睛盯着天花板，脑子很清醒。`
+    ]);
+  } else if (state.activity === "打瓦") {
+    scene = pickRandom([
+      `你窝在${loc.includes("在家") ? "电脑前" : loc}打瓦，屏幕的光映在脸上。${state.gaming?.streak > 0 ? "手感正热。" : state.gaming?.streak < 0 ? "队友已经开始送了。" : ""}`,
+      `${hour >= 22 || hour < 2 ? "夜深了，" : ""}你在打瓦。耳机里是枪声和队友的报点。${state.gaming?.streak > 2 ? "这把稳了。" : state.gaming?.streak < -2 ? "心态快崩了。" : ""}`
+    ]);
+  } else if (hour >= 0 && hour < 2) {
+    scene = pickRandom([
+      `已经过了零点，外面很安静。你${locIn}${act}，屏幕是房间里唯一的光。`,
+      `夜深了，你还没睡。${locIn}${act}，也不知道在等什么。`
+    ]);
+  } else if (hour >= 2 && hour < 7) {
+    scene = `凌晨${hour}点，你${locIn}，${act}。`;
+  } else if (hour >= 7 && hour < 9) {
+    scene = pickRandom([
+      `清晨的光还没完全亮，你${locIn}，${act}。`,
+      `闹钟响过了，你${locIn}，${act}。`
+    ]);
+  } else if (hour >= 9 && hour < 12) {
+    if (state.location === "在学校" && act === "上课") {
+      scene = pickRandom([
+        `上午的课还在上，你坐在教室里。老师在讲台上说着什么，你有一搭没一搭地听着。`,
+        `讲台上老师的声音像背景白噪音。你坐在教室里，${act}。`
+      ]);
+    } else {
+      scene = pickRandom([
+        `上午了，你${locIn}，${act}。阳光从窗户斜进来。`,
+        `早上的时间慢悠悠的，你${locIn}，${act}。`
+      ]);
+    }
+  } else if (hour >= 12 && hour < 14) {
+    scene = pickRandom([
+      `中午，你${locIn}，${act}。`,
+      `正午的阳光有点晃眼，你${locIn}，${act}。`
+    ]);
+  } else if (hour >= 14 && hour < 18) {
+    if (state.location === "在学校" && act === "上课") {
+      scene = pickRandom([
+        `下午的课还在继续。你坐在教室里，窗外的光慢慢变黄。`,
+        `教室里有点闷，你${act}，等着下课。`
+      ]);
+    } else if (act === "摸鱼刷手机") {
+      scene = pickRandom([
+        `下午的课结束了，你${locIn}，刷着手机。不是有什么想看的——就是不想动。`,
+        `你${locIn}，手里划着屏幕。下午的时间好像特别长。`
+      ]);
+    } else {
+      scene = pickRandom([
+        `下午了，你${locIn}，${act}。`,
+        `太阳开始偏西，你${locIn}，${act}。`
+      ]);
+    }
+  } else if (hour >= 18 && hour < 21) {
+    scene = pickRandom([
+      `天暗下来了。你${locIn}，${act}。`,
+      `傍晚，窗外天的颜色在变。你${locIn}，${act}。`
+    ]);
+  } else if (hour >= 21 && hour < 24) {
+    scene = pickRandom([
+      `晚上${hour}点，外面安静下来。你${locIn}，${act}。`,
+      `夜深了，你${locIn}，${act}。明天还有课，但你暂时不想管。`
+    ]);
   } else {
-    lines.push("他发消息来了，但你现在不太想多聊。");
+    scene = `你${locIn}，${act}。`;
   }
 
-  const full = lines.join("\n");
-  // 如果太长（超过 3 行），精简
-  const lineCount = full.split("\n").length;
-  if (lineCount > 4) {
-    return lines.slice(0, 3).join("\n");
+  // 拼接 mood 质感作为第二句（如果场景本身还没包含情绪）
+  return `${scene} ${moodTexture}`;
+}
+
+/**
+ * 构建细节行：身体不适、打瓦战果、在想的事、未读消息等。
+ */
+function buildDetailLine(state) {
+  const parts = [];
+
+  if (state.physical && state.physical.length > 0) {
+    parts.push(state.physical.join("、"));
   }
 
-  return full;
+  if (state.gaming && state.gaming.recentResult) {
+    parts.push(state.gaming.recentResult);
+  }
+
+  if (state.thinkingAbout) {
+    // 思绪用更自然的引述
+    parts.push(`在想：${state.thinkingAbout}`);
+  }
+
+  if (state.unreadMessages > 0) {
+    parts.push(`他有${state.unreadMessages}条消息你没回`);
+  }
+
+  if (state.socialBattery <= 3) {
+    parts.push("社交能量很低，不想多说话");
+  }
+
+  if (parts.length === 0) return null;
+  return parts.join("。") + "。";
+}
+
+/**
+ * 构建对 GSQ 消息的态度行——具有画面感，不干瘪。
+ */
+function buildAttitudeLine(state) {
+  if (state.activity === "睡觉") {
+    return "他发消息来了，但你在睡觉，没看到。";
+  }
+
+  if (state.wantToTalk) {
+    if (state.moodValue >= 8) {
+      return pickRandom([
+        "他发消息来了。你看到提示，嘴角弯了一下。",
+        "他发消息来了。正好，你也有话想说。"
+      ]);
+    }
+    return "他发消息来了。";
+  }
+
+  // 不想聊——根据心情给不同的画面
+  if (state.moodValue <= 3) {
+    return pickRandom([
+      "他发消息来了。你看了眼手机，把屏幕扣在桌上。",
+      "他发消息来了。但你不想回，现在谁都不想理。"
+    ]);
+  }
+
+  if (state.gaming && state.gaming.playing && state.gaming.streak < 0) {
+    return "他发消息来了。你正输得上头，看了一眼没回。";
+  }
+
+  if (state.socialBattery <= 3) {
+    return pickRandom([
+      "他发消息来了。你看到了，但今天社交能量用完了。",
+      "他发消息来了。等会儿再回吧，现在不想说话。"
+    ]);
+  }
+
+  return pickRandom([
+    "他发消息来了，但你现在不太想多聊。",
+    "他发消息来了。你看到了，等会儿再说。"
+  ]);
 }
 
 /**
