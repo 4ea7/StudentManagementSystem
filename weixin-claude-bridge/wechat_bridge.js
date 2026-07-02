@@ -76,6 +76,15 @@ const CORRECTIONS_FILE = path.join(scriptDir, "corrections.txt");
 const STICKERS_FILE = path.join(scriptDir, "stickers.json");
 const XAJ_STATE_FILE = path.join(scriptDir, "xaj_state.json");
 
+// ── 双向情感反馈配置 ──
+const EMOTION_ENABLED = process.env.EMOTION_ENABLED !== "false"; // 默认开启，设 "false" 关闭
+
+// 情感标记 → emoji 映射（控制台日志用）
+const EMOTION_EMOJI = {
+  "温暖": "❤️", "刺痛": "💔", "开心": "😊", "烦躁": "😤",
+  "感动": "🥹", "失望": "😞", "没感觉": "😐", "想笑": "😏"
+};
+
 // ── 主动消息配置 ──
 const PROACTIVE_ENABLED = process.env.PROACTIVE_ENABLED === "true";
 const PROACTIVE_TARGET = process.env.PROACTIVE_TARGET || ""; // 对方的备注名或昵称
@@ -152,6 +161,197 @@ function updateXajInteraction() {
   } catch (e) {
     // 静默失败，不影响主流程
   }
+}
+
+// ── 双向情感反馈机制 ──
+// 在 xaj 回复 GSQ 后，再调用一次 AI 分析对话对 xaj 的情感影响。
+// 分析结果会同步更新 xaj_state.json，让她的状态真正被对话内容塑造。
+
+/**
+ * 本地 moodValue → 中文标签（与 xaj_life.js 保持一致，避免模块依赖）
+ */
+function resolveMoodLabelLocal(value) {
+  if (value >= 9) return "超开心";
+  if (value >= 7.5) return "开心";
+  if (value >= 6) return "还不错";
+  if (value >= 5) return "一般";
+  if (value >= 4) return "有点烦";
+  if (value >= 2.5) return "烦躁";
+  if (value >= 1.5) return "心情很差";
+  return "烦死了";
+}
+
+/**
+ * 构建情感分析的 system prompt —— 简短、专注分析而非生成回复。
+ * 注入她当前的状态描述，让 AI 知道 "她说这句话的时候心情是怎样的"。
+ */
+function buildEmotionSystemPrompt(userMessage, assistantReply, xajState) {
+  let stateDesc = "";
+  if (xajState && _xajGenerateStateDesc) {
+    stateDesc = _xajGenerateStateDesc(xajState);
+  }
+  if (!stateDesc && xajState) {
+    // 回退：手动拼接简要状态
+    stateDesc = `${xajState.mood || "一般"} (${xajState.moodValue}), ${xajState.activity || "待着"}, ${xajState.thinkingAbout || "没在想什么"}`;
+  }
+  if (!stateDesc) {
+    stateDesc = "状态未知";
+  }
+
+  return `你是情感分析器。你分析 GSQ 对奚艾佳说的话对她产生了什么情感影响。
+
+当前她的状态：${stateDesc}
+GSQ 对她说：${userMessage}
+她的回复：${assistantReply}
+
+分析这句话对她内心造成的影响。只输出 JSON，不要有任何其他文字。JSON 格式：
+{
+  "moodDelta": 0,
+  "emotionalImpact": "没感觉",
+  "lingeringThought": "这句话之后她在想什么",
+  "wantsToSay": "她想说但没说出口的话",
+  "agendaChange": "这会怎么影响她后续想不想理他"
+}
+moodDelta 范围 -5 到 +5。emotionalImpact 从以下选：温暖/刺痛/开心/烦躁/感动/失望/没感觉/想笑。`;
+}
+
+/**
+ * 调用 AI 分析对话对 xaj 的情感影响。
+ * 这是第二次 API 调用，不带回复任务，专用于情感分析。
+ * 失败时静默返回 null —— 不阻塞正常聊天。
+ *
+ * @param {string} userMessage - GSQ 说的原始内容
+ * @param {string} assistantReply - xaj 的回复
+ * @param {object} xajState - 她当前的状态对象
+ * @returns {object|null} 情感分析结果，或 null（分析失败）
+ */
+async function analyzeEmotionalImpact(userMessage, assistantReply, xajState) {
+  if (!EMOTION_ENABLED) return null;
+
+  try {
+    const systemPrompt = buildEmotionSystemPrompt(userMessage, assistantReply, xajState);
+    const userContent = "分析上述对话对奚艾佳的情感影响，输出 JSON。";
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent }
+    ];
+
+    const resp = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
+      body: JSON.stringify({ model: API_MODEL, messages, max_tokens: 256, temperature: 0.3 }),
+    });
+
+    if (!resp.ok) {
+      log("⚠️", `情感分析 API 失败: ${resp.status}`);
+      return null;
+    }
+
+    const data = await resp.json();
+    const raw = data.choices?.[0]?.message?.content || "";
+
+    // JSON 可能被 markdown 代码块包裹，尝试提取
+    let jsonStr = raw.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
+    const result = JSON.parse(jsonStr);
+
+    // 校验并规范化字段
+    return {
+      moodDelta: Math.max(-5, Math.min(5, Number(result.moodDelta) || 0)),
+      emotionalImpact: result.emotionalImpact || "没感觉",
+      lingeringThought: result.lingeringThought || "",
+      wantsToSay: result.wantsToSay || "",
+      agendaChange: result.agendaChange || ""
+    };
+  } catch (err) {
+    // JSON 解析失败或其他错误 → 静默返回 null
+    log("⚠️", `情感分析失败: ${err.message.slice(0, 80)}`);
+    return null;
+  }
+}
+
+/**
+ * 将情感分析结果写入 xaj_state.json。
+ * 同步更新 moodValue、thinkingAbout、wantToTalk、wantsToSay 等字段。
+ *
+ * @param {object} impact - analyzeEmotionalImpact 的返回结果
+ * @param {string} displayName - 目标用户的显示名（日志用）
+ */
+function applyEmotionalImpact(impact, displayName) {
+  if (!impact) return;
+
+  try {
+    const state = loadXajState();
+    if (!state) return;
+
+    const oldMoodValue = state.moodValue;
+
+    // 1. 调整心情值（delta 乘以 0.5 的衰减因子，避免单条消息波动过大）
+    state.moodValue = Math.max(1, Math.min(10, +(state.moodValue + impact.moodDelta * 0.5).toFixed(2)));
+    state.mood = resolveMoodLabelLocal(state.moodValue);
+
+    // 2. 设置她此刻在想的事（被对话触发的 lingering thought）
+    if (impact.lingeringThought) {
+      state.thinkingAbout = impact.lingeringThought;
+    }
+
+    // 3. 更新 "想说但没说出口的话"
+    if (impact.wantsToSay) {
+      state.wantsToSay = impact.wantsToSay;
+      // 加入未说出口的话列表（保留最近 20 条）
+      if (!Array.isArray(state.unsaidAgenda)) state.unsaidAgenda = [];
+      state.unsaidAgenda.push({
+        thought: impact.wantsToSay,
+        timestamp: new Date().toISOString()
+      });
+      if (state.unsaidAgenda.length > 20) {
+        state.unsaidAgenda = state.unsaidAgenda.slice(-20);
+      }
+    }
+
+    // 4. 更新想聊天的意愿（根据情感影响类型）
+    const positiveImpacts = ["温暖", "开心", "感动", "想笑"];
+    const negativeImpacts = ["刺痛", "烦躁", "失望"];
+    if (positiveImpacts.includes(impact.emotionalImpact)) {
+      state.wantToTalk = state.moodValue >= 5;
+      state.wantToTalkReason = state.wantToTalk ? "心情被他说好了" : (impact.agendaChange || "想自己待一会儿");
+    } else if (negativeImpacts.includes(impact.emotionalImpact)) {
+      // 负面情绪 → 需要心情比较好才想继续聊
+      state.wantToTalk = state.moodValue >= 7;
+      state.wantToTalkReason = state.wantToTalk ? "虽然有点不高兴但还是想聊" : (impact.agendaChange || "暂时不想理他");
+    }
+
+    // 5. 记录最近一次情感影响（供调试/回顾）
+    state.lastEmotionalImpact = {
+      impact: impact.emotionalImpact,
+      delta: impact.moodDelta,
+      timestamp: new Date().toISOString()
+    };
+
+    fs.writeFileSync(XAJ_STATE_FILE, JSON.stringify(state, null, 2));
+
+    // 6. 控制台日志：带情感标记的汇报
+    logEmotionalImpact(impact, oldMoodValue, state.moodValue, displayName);
+  } catch (err) {
+    log("⚠️", `情感状态更新失败: ${err.message}`);
+  }
+}
+
+/**
+ * 控制台日志输出 —— 以情感标记格式汇报对话的情感影响。
+ * 格式：[❤️] 温暖 +2 | 心情 5.0→7.0 | 她心里暖暖的但嘴上不说
+ */
+function logEmotionalImpact(impact, oldMood, newMood, displayName) {
+  const emoji = EMOTION_EMOJI[impact.emotionalImpact] || "💭";
+  const deltaSign = impact.moodDelta >= 0 ? "+" : "";
+  const moodArrow = oldMood.toFixed(1) + "→" + newMood.toFixed(1);
+  const extra = impact.lingeringThought
+    ? ` | ${impact.lingeringThought.slice(0, 40)}${impact.lingeringThought.length > 40 ? "…" : ""}`
+    : "";
+  log(`${emoji}`, `${impact.emotionalImpact} ${deltaSign}${impact.moodDelta} | 心情 ${moodArrow}${extra}`);
 }
 
 // 发一条表情
@@ -724,6 +924,23 @@ bot.on("message", async (msg) => {
     while (history.length > MAX_HISTORY) history.shift();
 
     await sendReply(reply, from);
+
+    // ── 双向情感反馈：分析这句话对 xaj 的情感影响 ──
+    // 仅在对话对象是目标用户（GSQ）且消息和回复都非空时触发
+    // 异步执行，不阻塞消息收发主流程
+    if (PROACTIVE_TARGET && displayName === PROACTIVE_TARGET && rawText && reply) {
+      const xajState = loadXajState();
+      if (xajState) {
+        // 用 .then().catch() 而非 await，确保情感分析不阻塞消息处理
+        analyzeEmotionalImpact(rawText, reply, xajState).then(impact => {
+          if (impact) {
+            applyEmotionalImpact(impact, displayName);
+          }
+        }).catch(() => {
+          // 最外层兜底：静默吞掉所有未捕获异常，不影响聊天
+        });
+      }
+    }
 
   } catch (err) {
     log("❌", `${err.message}`);
