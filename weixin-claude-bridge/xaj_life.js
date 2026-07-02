@@ -788,6 +788,19 @@ function pickRandom(arr) {
  */
 function recordEvent(state, description) {
   if (!description) return;
+
+  // 去重：如果跟上一条高度相似（重叠率 > 60%），跳过
+  if (state.recentEvents.length > 0) {
+    const last = state.recentEvents[state.recentEvents.length - 1];
+    const shorter = last.length < description.length ? last : description;
+    const longer = last.length < description.length ? description : last;
+    let overlap = 0;
+    for (let i = 0; i < shorter.length; i++) {
+      if (shorter[i] === longer[i]) overlap++;
+    }
+    if (overlap / shorter.length > 0.6) return;
+  }
+
   state.recentEvents.push(description);
   // 只保留最近 5 条
   if (state.recentEvents.length > 5) {
@@ -1029,6 +1042,8 @@ function createInitialState() {
     activity: "刷手机",
     mood: "一般",
     moodValue: 6,
+    affection: 55,             // 对 GSQ 的好感度 0-100，长期积累
+    affectionPeak: 55,         // 好感度历史峰值，用于计算地下室
     physical: [],              // 如 ["长痘中", "轻微头疼"]
     lastMeal: "12:00",
     socialBattery: 7,         // 1-10, 越低越不想社交
@@ -1407,17 +1422,28 @@ async function aiLifeEvent(state) {
     recentMemoryText = (mem.content || "无").slice(0, 80);
   }
 
+  const lastMeal = state.lastMeal || "未知";
+  const lastMealHint = lastMeal !== "未知"
+    ? `上次吃饭: ${lastMeal}。不要重复吃饭——已经吃过了就别再让她去吃了。`
+    : "";
+
   const prompt = `你是奚艾佳，中侨职业技术大学的学生，在上海金山。
 
-现在的时间：${timeStr}，${state.dayOfWeek}
-你正在：${state.location}，${state.activity}
-你的心情：${state.mood}(${state.moodValue}/10)
-最近发生的事：${recentEventsText}
-你跟GSQ的关系状态：${lastInteractionText}，他说过：${recentMemoryText}
+现在: ${timeStr} ${state.dayOfWeek}
+正在: ${state.location}, ${state.activity}
+心情: ${state.mood}(${state.moodValue})
+${lastMealHint}
+此前事件（参考，别重复）: ${recentEventsText}
+跟GSQ: ${lastInteractionText}
 
-用一句话描述现在你的生活中正在发生什么。不要离谱。要像一个普通女大学生真实的一天。
-然后输出 JSON：
-{"event": "简短的事件描述", "activity": "你现在的活动", "location": "你在哪", "moodDelta": -1到2的整数, "thinkingAbout": "你脑子里在想什么", "impulse": "你想跟GSQ说的话（如果没有想说的就留空）"}`;
+规则:
+- 描述现在正在发生的一件小事。像普通女大学生真实的一天。
+- 事件要向前推进——不能重复之前已经发生过的事。
+- 不能不合逻辑。
+- **重要：事件只能描述奚艾佳自己的生活。不能编造GSQ做了什么。** 不要说"GSQ发来消息""GSQ发了一张截图""GSQ说…"——这些是虚构的，他没有。事件可以让她想找GSQ（冲动），但触发冲动的原因必须是她自己的事（看到猫、打瓦输了、梦见什么、想到他之前说过的话等），不能是她虚构GSQ做了什么。
+
+输出 JSON:
+{"event":"一句话（只描述她自己）","activity":"现在的活动","location":"在哪","moodDelta":-1到2的整数,"thinkingAbout":"脑子里在想什么","impulse":"想跟GSQ说的话，没有就空"}`;
 
   // ── 调用 API ──
   try {
@@ -1493,7 +1519,8 @@ async function aiLifeEvent(state) {
 
     // 如果 AI 生成了想对 GSQ 说的话 → 设置主动消息冲动
     if (parsed.impulse && typeof parsed.impulse === "string" && parsed.impulse.trim()) {
-      const intensity = state.moodValue >= 8 ? "high" : state.moodValue >= 5 ? "medium" : "low";
+      // high 只给真正特别的事——心情要很高且不是每个冲动都配
+      const intensity = state.moodValue >= 8.5 ? "high" : state.moodValue >= 6 ? "medium" : "low";
       setImpulse(state, parsed.event || parsed.impulse, intensity, parsed.impulse.trim());
     }
 
@@ -1956,8 +1983,8 @@ function buildDetailLine(state) {
   }
 
   if (state.thinkingAbout) {
-    // 思绪用更自然的引述
-    parts.push(`在想：${state.thinkingAbout}`);
+    // 思绪——用"脑子里"前缀，明确是内部状态
+    parts.push(`脑子里：${state.thinkingAbout}`);
   }
 
   if (state.unreadMessages > 0) {
@@ -2058,13 +2085,24 @@ export function generateProactivePrompt(state, targetName) {
     mood = pickRandom(defaults);
   }
 
+  // 随机选一种发起风格
+  const styles = [
+    "兴奋分享型：直接说发生了什么，不加前缀",
+    "碎碎念型：想到什么说什么，句子可以不完整",
+    "钓鱼型：只说一半等他追问",
+    "突然型：毫无铺垫直接切入，像脑子突然蹦出来的",
+    "懒人型：话很短，语气懒洋洋的",
+  ];
+  const style = styles[Math.floor(Math.random() * styles.length)];
+
   return `你现在想主动找 ${targetName} 聊天。${mood}
+
+风格提示：${style}
 规则：
-- 1-3句，极短，发微信不是写小作文
-- 不要打招呼（不说"在吗""hi"之类）
-- 不要用 --- 分隔符，就发一条
-- 用你的自然语气
-- 不要和最近聊天记录重复`;
+- 1-3句。直接说你要说的，像发朋友圈一样自然。
+- 不要"在吗""hi""干嘛呢"这种开场白——你不是那种人。
+- 可以带括号动作但只在真正需要的时候——比如"（翻相册）发一张"。
+- 不要和最近聊天记录重复。`;
 }
 
 /**
@@ -2106,19 +2144,20 @@ export function generateImpulsePrompt(state, targetName) {
     intensityHint = "你不太确定要不要说，可能会说一半又撤回或者突然不想说了。";
   }
 
+  const styles = ["兴奋型", "碎碎念型", "突然型", "懒人型", "钓鱼型"];
+  const style = styles[Math.floor(Math.random() * styles.length)];
+
   return `你现在想主动找 ${targetName} 说话。
 
-**你为什么找他：** ${reason}
-**你想说的：** ${whatToSay}
-${stateLine ? `**你现在的状态：** ${stateLine}` : ""}${intensityHint ? `**说话冲动程度：** ${intensityHint}` : ""}
+为什么找他：${reason}
+你想说的：${whatToSay}
+${stateLine ? `状态：${stateLine}` : ""}${intensityHint ? `冲动：${intensityHint}` : ""}
+风格：${style}
 
 规则：
-- 1-3句，极短，发微信不是写小作文
-- 不要打招呼（不说"在吗""hi"之类）
-- 不要用 --- 分隔符，就发一条
-- 用你的自然语气，跟你平时的风格一致
-- 不要和最近聊天记录重复
-- 你的话跟你现在的心情和状态一致`;
+- 1-3句，不用"在吗""hi""干嘛呢"这类开场
+- 直接说你想说的，像脑子里蹦出来就发出去了
+- 不要和最近聊天记录重复`;
 }
 
 /**
@@ -2145,7 +2184,19 @@ let intervalId = null;
 
 async function runOnce() {
   const now = new Date();
-  if (!state) state = loadState();
+  // 每次 tick 重新读盘——保留 wechat_bridge 写入的 affection、mood 等字段
+  const diskState = loadState();
+  if (!state) {
+    state = diskState;
+  } else {
+    // 合并：保留内存中的内部字段（_开头的），外部字段从磁盘读取
+    const internalFields = {};
+    for (const key of Object.keys(state)) {
+      if (key.startsWith("_")) internalFields[key] = state[key];
+    }
+    state = diskState;
+    Object.assign(state, internalFields);
+  }
   await tick(state, now);
   saveState(state);
   return state;

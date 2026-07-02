@@ -1,21 +1,28 @@
 {
-  "time": "2026-07-02T08:30:46+08:00",
+  "time": "2026-07-02T10:09:54+08:00",
   "dayOfWeek": "周四",
-  "location": "在家睡觉",
-  "activity": "睡觉",
-  "mood": "一般",
-  "moodValue": 5.45,
+  "location": "在学校",
+  "activity": "赖床",
+  "mood": "有点烦",
+  "moodValue": 4.45,
   "physical": [],
   "lastMeal": "19:30",
-  "socialBattery": 7.06,
+  "socialBattery": 6.3,
   "gaming": {
     "playing": false,
     "recentResult": null,
     "streak": 0
   },
-  "thinkingAbout": null,
+  "thinkingAbout": "其实有点想他，但打死也不说",
   "lastInteraction": "2026-07-01T23:45:00+08:00",
   "unreadMessages": 0,
   "wantToTalk": false,
-  "wantToTalkReason": "在睡觉"
+  "wantToTalkReason": "累了",
+  "impulseToMessage": {
+    "triggered": false,
+    "reason": null,
+    "intensity": null,
+    "whatToSay": null,
+    "timestamp": null
+  }
 }
