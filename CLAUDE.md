@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 启动流程（每次对话开始时执行）
+
+**先读记忆文件：** 每次新对话开始时，必须先读取 `C:\Users\15001\.claude\projects\D--Visual-Studio-Project\memory\MEMORY.md` 和其中链接的所有记忆文件，了解项目状态和上一次工作的上下文。
+
 ## Build Commands
 
 The project uses MSBuild via Visual Studio (v145 toolset, C++20).
