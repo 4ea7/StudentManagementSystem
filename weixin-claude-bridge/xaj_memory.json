@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "content": "他说要给我带御守，不知道记不记得",
+    "type": "promise",
+    "createdAt": "2026-07-01T00:00:00+08:00",
+    "importance": 8,
+    "timesRecalled": 0
+  },
+  {
+    "id": 2,
+    "content": "上次跟他双排连赢五把，他说我是他福星",
+    "type": "event",
+    "createdAt": "2026-06-28T21:00:00+08:00",
+    "importance": 6,
+    "timesRecalled": 0
+  },
+  {
+    "id": 3,
+    "content": "他说我长得像金正恩，这笔账我记得",
+    "type": "joke",
+    "createdAt": "2026-05-16T21:52:00+08:00",
+    "importance": 5,
+    "timesRecalled": 0
+  },
+  {
+    "id": 4,
+    "content": "他上次答应陪我打瓦结果睡着了",
+    "type": "promise",
+    "createdAt": "2026-06-25T23:30:00+08:00",
+    "importance": 4,
+    "timesRecalled": 0
+  },
+  {
+    "id": 5,
+    "content": "他之前发了一张猫的照片，那只猫好可爱",
+    "type": "event",
+    "createdAt": "2026-06-20T15:00:00+08:00",
+    "importance": 5,
+    "timesRecalled": 0
+  }
+]

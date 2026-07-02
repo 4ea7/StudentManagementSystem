@@ -1,0 +1,21 @@
+{
+  "time": "2026-07-02T08:30:46+08:00",
+  "dayOfWeek": "周四",
+  "location": "在家睡觉",
+  "activity": "睡觉",
+  "mood": "一般",
+  "moodValue": 5.45,
+  "physical": [],
+  "lastMeal": "19:30",
+  "socialBattery": 7.06,
+  "gaming": {
+    "playing": false,
+    "recentResult": null,
+    "streak": 0
+  },
+  "thinkingAbout": null,
+  "lastInteraction": "2026-07-01T23:45:00+08:00",
+  "unreadMessages": 0,
+  "wantToTalk": false,
+  "wantToTalkReason": "在睡觉"
+}
