@@ -110,6 +110,22 @@ The vcxproj compiles exactly one source file. To change which program builds:
 2. **不猜原则**：Tier 1 Agent 遇到不确定的 API、库用法、配置项时，禁止自行推测，必须委托 Tier 2 Web Agent 搜索确认
 3. **Tier 3 不阻塞本地**：服务器操作完全独立运行，Tier 1/2 不需要等待 Tier 3
 4. **Tier 1 + Tier 2 可并行**：两个层级同时启动，搜索结果返回后 Tier 1 继续执行
+5. **中断不丢弃**：用户发出新指令时，如果之前有未完成的任务，必须同时处理——启动新 Agent 执行新任务，旧 Agent 继续完成旧任务。两者并行，互不阻塞。不得丢弃未完成的工作
+
+#### 中断处理模式
+
+```
+用户: "重构 hash_table.h"    ← 正在执行中…
+  │
+  ├─ Agent(Sonnet): 审查 hash_table.h ──继续──▶ 生成重构方案
+  │
+  └─ 用户插入新指令: "检查服务器状态"
+       │
+       └─ Agent(Haiku): SSH 检查服务器 ──并行──▶ 报告结果
+       
+  旧 Agent 不中断，新 Agent 立即启动。
+  两个结果都返回后逐一汇报。
+```
 
 #### 典型流程
 
